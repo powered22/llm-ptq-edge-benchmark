@@ -45,12 +45,5 @@ python evaluation/run_perplexity.py --model-path ./results/awq --dataset wikitex
 - NVIDIA Jetson Orin / AGX Xavier (edge)
 - NVIDIA RTX/A-series GPU (server baseline)
 
-## Citation
 
-```bibtex
-@article{yourname2026ptqedge,
-  title={Comparative Analysis of Post-Training Quantization Methods for LLM Inference on Edge Devices},
-  author={Your Name},
-  year={2026}
-}
-```
+
