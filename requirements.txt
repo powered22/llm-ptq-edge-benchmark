@@ -1,0 +1,34 @@
+# Core
+torch>=2.1.0
+transformers>=4.40.0
+datasets>=2.18.0
+accelerate>=0.28.0
+
+# Quantization backends
+auto-awq>=0.2.4
+auto-gptq>=0.7.1
+bitsandbytes>=0.43.0
+
+# Evaluation
+lm-eval>=0.4.2
+nltk
+rouge-score
+bert-score
+scikit-learn
+
+# Benchmarking & profiling
+psutil
+pynvml
+py3nvml
+
+# Utilities
+pandas
+numpy
+tqdm
+pyyaml
+python-dotenv
+
+# Visualization
+matplotlib
+seaborn
+jupyterlab
