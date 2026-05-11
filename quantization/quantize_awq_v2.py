@@ -41,7 +41,7 @@ def quantize_awq(
 ):
     print(f"Loading {model_name}...")
     model = AutoModelForCausalLM.from_pretrained(
-        model_name, dtype="auto", device_map="auto", trust_remote_code=True
+        model_name, torch_dtype="auto", device_map="auto", trust_remote_code=True
     )
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
@@ -57,7 +57,7 @@ def quantize_awq(
     print("Running AWQ calibration + quantization (W4A16 symmetric)...")
     oneshot(
         model=model,
-        tokenizer=tokenizer,
+        tokenizer=tokenizer,    
         dataset=calib_ds,
         recipe=recipe,
         max_seq_length=max_seq_length,
