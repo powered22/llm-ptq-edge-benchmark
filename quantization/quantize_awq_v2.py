@@ -1,11 +1,14 @@
 """
-quantize_awq_v2.py — AWQ dengan calibration data yang benar
+quantize_awq_v2.py — AWQ dengan calibration data (API llm-compressor yang benar)
 """
 import argparse
-from datasets import load_dataset
+import os
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from llmcompressor import oneshot
 from llmcompressor.modifiers.quantization import QuantizationModifier
+
+# Suppress tokenizer warning
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 def quantize_awq(model_name: str, output_dir: str, num_calibration_samples: int = 512):
@@ -15,16 +18,6 @@ def quantize_awq(model_name: str, output_dir: str, num_calibration_samples: int 
     )
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
-    # Siapkan calibration data (wikitext2 — standar untuk PTQ paper)
-    print("Preparing calibration data...")
-    ds = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
-    samples = [ 
-        tokenizer(row["text"], return_tensors="pt", truncation=True, max_length=512)
-        for row in ds
-        if len(row["text"].strip()) > 50
-    ][:num_calibration_samples]
-
-    # W4A16 dengan calibration = AWQ sejati
     recipe = QuantizationModifier(
         targets="Linear",
         scheme="W4A16",
@@ -34,10 +27,14 @@ def quantize_awq(model_name: str, output_dir: str, num_calibration_samples: int 
     print(f"Quantizing with W4A16 + {num_calibration_samples} calibration samples...")
     oneshot(
         model=model,
+        tokenizer=tokenizer,
         recipe=recipe,
-        dataset=samples,           # <-- ini yang membuat AWQ-style sesungguhnya
-        output_dir=output_dir,
+        dataset="wikitext",                      # <-- string nama dataset
+        dataset_config_name="wikitext-2-raw-v1", # <-- config dataset
+        split="train",
         num_calibration_samples=num_calibration_samples,
+        max_seq_length=512,
+        output_dir=output_dir,
     )
     tokenizer.save_pretrained(output_dir)
     print(f"✓ Model saved to {output_dir}")
