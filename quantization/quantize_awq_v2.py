@@ -31,7 +31,7 @@ def quantize_awq(model_name: str, output_dir: str, num_calibration_samples: int 
         recipe=recipe,
         dataset="wikitext",                      # <-- string nama dataset
         dataset_config_name="wikitext-2-raw-v1", # <-- config dataset
-        split="train",
+        splits="train",
         num_calibration_samples=num_calibration_samples,
         max_seq_length=512,
         output_dir=output_dir,
