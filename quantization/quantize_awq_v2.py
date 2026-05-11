@@ -50,11 +50,11 @@ def quantize_awq(
 
     recipe = AWQModifier(
         targets=["Linear"],
-        scheme="W4A16_ASYM",
+        scheme="W4A16",
         ignore=["lm_head"],
     )
 
-    print("Running AWQ calibration + quantization (W4A16_ASYM)...")
+    print("Running AWQ calibration + quantization (W4A16 symmetric)...")
     oneshot(
         model=model,
         tokenizer=tokenizer,
