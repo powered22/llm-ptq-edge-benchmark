@@ -17,22 +17,20 @@ from llmcompressor.modifiers.quantization import GPTQModifier
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-def quantize_gptq(model_name: str, output_dir: str, num_samples: int = 512):
+def quantize_gptq(model_name: str, output_dir: str, num_samples: int = 512, scheme: str = "W4A16"):
     print(f"Loading {model_name}...")
     model = AutoModelForCausalLM.from_pretrained(
         model_name, torch_dtype="auto", device_map="auto", trust_remote_code=True
     )
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
-    # GPTQModifier — calibration data benar-benar digunakan.
-    # Hessian dampening pakai default library (0.01, sesuai paper GPTQ).
     recipe = GPTQModifier(
         targets="Linear",
-        scheme="W4A16",
+        scheme=scheme,
         ignore=["lm_head"],
     )
 
-    print(f"Quantizing with GPTQ W4A16 + {num_samples} calibration samples...")
+    print(f"Quantizing with GPTQ {scheme} + {num_samples} calibration samples...")
     oneshot(
         model=model,
         tokenizer=tokenizer,
@@ -53,5 +51,6 @@ if __name__ == "__main__":
     parser.add_argument("--model", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--num-samples", type=int, default=512)
+    parser.add_argument("--scheme", default="W4A16", choices=["W4A16", "W8A16"])
     args = parser.parse_args()
-    quantize_gptq(args.model, args.output, args.num_samples)
+    quantize_gptq(args.model, args.output, args.num_samples, args.scheme)
