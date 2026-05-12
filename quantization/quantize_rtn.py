@@ -4,9 +4,9 @@ Baseline naïve: bobot langsung dibulatkan ke grid kuantisasi tanpa kalibrasi
 maupun koreksi error (tidak seperti AWQ/GPTQ).
 
 Usage:
-    python quantization/quantize_rtn.py \
-        --model Qwen/Qwen2.5-1.5B \
-        --output ./results/qwen2.5-1.5b-rtn-int4
+   python quantization/quantize_rtn.py \
+    --model Qwen/Qwen2.5-1.5B \
+    --output ./results/qwen2.5-1.5b-rtn-w4a16
 """
 import argparse
 import os
@@ -20,7 +20,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 def quantize_rtn(model_name: str, output_dir: str):
     print(f"Loading {model_name}...")
     model = AutoModelForCausalLM.from_pretrained(
-        model_name, dtype="auto", device_map="auto", trust_remote_code=True
+        model_name, torch_dtype="auto", device_map="auto", trust_remote_code=True
     )
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
