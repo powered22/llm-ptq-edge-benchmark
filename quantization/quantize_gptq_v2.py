@@ -20,7 +20,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 def quantize_gptq(model_name: str, output_dir: str, num_samples: int = 512):
     print(f"Loading {model_name}...")
     model = AutoModelForCausalLM.from_pretrained(
-        model_name, dtype="auto", device_map="auto", trust_remote_code=True
+        model_name, torch_dtype="auto", device_map="auto", trust_remote_code=True
     )
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
