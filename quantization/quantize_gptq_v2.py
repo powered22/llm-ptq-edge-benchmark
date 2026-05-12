@@ -24,13 +24,12 @@ def quantize_gptq(model_name: str, output_dir: str, num_samples: int = 512):
     )
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
-    # GPTQModifier — calibration data benar-benar digunakan
-    # damping_frac: stabilisasi Hessian, 0.01 adalah nilai standar dari paper GPTQ
+    # GPTQModifier — calibration data benar-benar digunakan.
+    # Hessian dampening pakai default library (0.01, sesuai paper GPTQ).
     recipe = GPTQModifier(
         targets="Linear",
         scheme="W4A16",
         ignore=["lm_head"],
-        damping_frac=0.01,
     )
 
     print(f"Quantizing with GPTQ W4A16 + {num_samples} calibration samples...")
