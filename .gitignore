@@ -1,2 +1,34 @@
+# Quantization output & benchmark results (large, not for git)
 results/
-models/
+
+# Model weight files anywhere in repo
+*.safetensors
+*.bin
+*.gguf
+*.pt
+*.pth
+*.ckpt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environments
+.venv/
+venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
