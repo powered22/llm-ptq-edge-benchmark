@@ -12,7 +12,7 @@ import json
 import os
 import time
 import torch
-from transformers import AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from datasets import load_dataset
 from tqdm import tqdm
 
@@ -64,9 +64,17 @@ def load_model(model_path: str, method: str):
         from models.load_bnb import load_bnb
         bits = 4 if method == "bnb4" else 8
         model, tokenizer = load_bnb(model_path, bits=bits)
-    else:  # fp16 baseline
-        from models.load_fp16 import load_fp16
-        model, tokenizer = load_fp16(model_path)
+    else:
+        # fp16 baseline + semua model llm-compressor (compressed-tensors).
+        # torch_dtype="auto" supaya dtype mengikuti config.json (mis. bf16/fp16),
+        # transformers otomatis decompress weight saat config punya quantization_config.
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            torch_dtype="auto",
+            device_map="auto",
+            trust_remote_code=True,
+        )
+        model.eval()
     return model, tokenizer
 
 
