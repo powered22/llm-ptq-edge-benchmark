@@ -47,12 +47,12 @@ run_step() {
 #     --num-samples "$NUM_SAMPLES" \
 #     --scheme W8A16
 
-# 4. RTN W4A16
-# run_step "[4/6] RTN W4A16" \
-#   python quantization/quantize_rtn.py \
-#     --model "$MODEL" \
-#     --output "$OUT_DIR/qwen2.5_1.5b_rtn_w4a16" \
-#     --scheme W4A16
+4. RTN W4A16
+run_step "[4/6] RTN W4A16" \
+  python quantization/quantize_rtn.py \
+    --model "$MODEL" \
+    --output "$OUT_DIR/qwen2.5_1.5b_rtn_w4a16" \
+    --scheme W4A16
 
 # 5. RTN W8A16
 run_step "[5/6] RTN W8A16" \
@@ -69,6 +69,6 @@ run_step "[5/6] RTN W8A16" \
 
 echo ""
 echo "=========================================="
-echo "  All 1 quantization runs complete."
+echo "  All 2 quantization runs complete."
 echo "  Output: $OUT_DIR/qwen2.5_1.5b_*"
 echo "=========================================="
