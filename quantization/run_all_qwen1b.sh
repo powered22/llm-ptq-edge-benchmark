@@ -47,7 +47,7 @@ run_step() {
 #     --num-samples "$NUM_SAMPLES" \
 #     --scheme W8A16
 
-4. RTN W4A16
+#4. RTN W4A16
 run_step "[4/6] RTN W4A16" \
   python quantization/quantize_rtn.py \
     --model "$MODEL" \
