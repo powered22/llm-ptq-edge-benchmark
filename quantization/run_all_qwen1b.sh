@@ -40,35 +40,35 @@ run_step() {
 #     --scheme W4A16
 
 # 3. GPTQ W8A16
-run_step "[3/6] GPTQ W8A16" \
-  python quantization/quantize_gptq_v2.py \
-    --model "$MODEL" \
-    --output "$OUT_DIR/qwen2.5_1.5b_gptq_w8a16" \
-    --num-samples "$NUM_SAMPLES" \
-    --scheme W8A16
-
-# 4. RTN W4A16
-run_step "[4/6] RTN W4A16" \
-  python quantization/quantize_rtn.py \
-    --model "$MODEL" \
-    --output "$OUT_DIR/qwen2.5_1.5b_rtn_w4a16" \
-    --scheme W4A16
-
-# 5. RTN W8A16
-# run_step "[5/6] RTN W8A16" \
-#   python quantization/quantize_rtn.py \
+# run_step "[3/6] GPTQ W8A16" \
+#   python quantization/quantize_gptq_v2.py \
 #     --model "$MODEL" \
-#     --output "$OUT_DIR/qwen2.5_0.5b_instruct_rtn_w8a16" \
+#     --output "$OUT_DIR/qwen2.5_1.5b_gptq_w8a16" \
+#     --num-samples "$NUM_SAMPLES" \
 #     --scheme W8A16
 
-# 6. SmoothQuant W8A8
-run_step "[6/6] SmoothQuant W8A8" \
-  python quantization/quantize_smoothquant.py \
+# 4. RTN W4A16
+# run_step "[4/6] RTN W4A16" \
+#   python quantization/quantize_rtn.py \
+#     --model "$MODEL" \
+#     --output "$OUT_DIR/qwen2.5_1.5b_rtn_w4a16" \
+#     --scheme W4A16
+
+# 5. RTN W8A16
+run_step "[5/6] RTN W8A16" \
+  python quantization/quantize_rtn.py \
     --model "$MODEL" \
-    --output "$OUT_DIR/qwen2.5_1.5b_smooth_w8a8"
+    --output "$OUT_DIR/qwen2.5_1.5b_rtn_w8a16" \
+    --scheme W8A16
+
+# 6. SmoothQuant W8A8x``
+# run_step "[6/6] SmoothQuant W8A8" \
+#   python quantization/quantize_smoothquant.py \
+#     --model "$MODEL" \
+#     --output "$OUT_DIR/qwen2.5_1.5b_smooth_w8a8"
 
 echo ""
 echo "=========================================="
-echo "  All 3 quantization runs complete."
+echo "  All 1 quantization runs complete."
 echo "  Output: $OUT_DIR/qwen2.5_1.5b_*"
 echo "=========================================="
