@@ -1,6 +1,9 @@
 # Quantization output & benchmark results (large, not for git)
 results/
 
+# Third-party sources (llama.cpp clone, dsb)
+external/
+
 # Model weight files anywhere in repo
 *.safetensors
 *.bin
