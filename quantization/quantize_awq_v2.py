@@ -3,6 +3,13 @@ quantize_awq_v2.py — AWQ (Activation-aware Weight Quantization) dengan calibra
 
 Menggunakan AWQModifier dari llm-compressor: bobot di-skala per-channel berdasarkan
 statistik aktivasi yang dikumpulkan dari calibration set, lalu dikuantisasi ke W4A16.
+
+python quantization/quantize_awq_v2.py \
+  --model Qwen/Qwen2.5-1.5B \
+  --output ./out/qwen2.5-1.5b-awq-w4a16 \
+  --num-calibration-samples 512 \
+  --max-seq-length 512
+  
 """
 import argparse
 import os
