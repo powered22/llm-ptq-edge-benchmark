@@ -1,0 +1,52 @@
+# Requirements for running benchmark/benchmark_jetson.py on NVIDIA Jetson (ARM64 + Tegra GPU).
+#
+# IMPORTANT — install in this order:
+#
+# 1) JetPack (5.x or 6.x) must already be installed on the device.
+#    It provides CUDA, cuDNN, and TensorRT. Verify with: jtop  or  dpkg -l | grep nvidia-l4t-core
+#
+# 2) Install PyTorch from NVIDIA's Jetson wheel index — DO NOT `pip install torch`.
+#    The PyPI torch wheel has no CUDA build for ARM64/Tegra.
+#      - JetPack 6.x:  https://developer.download.nvidia.com/compute/redist/jp/v60/pytorch/
+#      - JetPack 5.x:  see NVIDIA forum "PyTorch for Jetson" sticky thread
+#      - Easiest alternative: run inside the container  nvcr.io/nvidia/l4t-pytorch:<tag>
+#    Verify:  python -c "import torch; print(torch.cuda.is_available())"  -> True
+#
+# 3) Then install everything below:  pip install -r requirements-jetson.txt
+#
+# 4) Install ONE quantization backend that matches your --method (see bottom of file).
+#    These usually need to be built from source on ARM64; PyPI wheels often don't work.
+
+# ---- Core inference stack ----
+transformers>=4.40.0
+accelerate>=0.28.0
+sentencepiece
+protobuf
+
+# ---- System / benchmark utilities used by benchmark_jetson.py and benchmark/utils.py ----
+psutil
+pandas
+numpy
+tqdm
+pyyaml
+
+# ---- Jetson monitoring (optional — script falls back gracefully if missing) ----
+jetson-stats   # provides `jtop` CLI and the `jtop` Python module imported in benchmark_jetson.py
+
+# ---- Quantization backends (install ONLY the one you need) ----
+#
+# --method fp16   -> nothing extra needed
+#
+# --method bnb4 / bnb8  -> bitsandbytes
+#   PyPI wheel has no ARM64 CUDA kernels. Build from source:
+#     git clone https://github.com/TimDettmers/bitsandbytes
+#     cd bitsandbytes && CUDA_VERSION=124 make cuda12x && pip install .
+#   (adjust CUDA_VERSION to match your JetPack's CUDA)
+#
+# --method awq   -> autoawq
+#   Usually needs source build on Jetson:
+#     pip install autoawq --no-build-isolation
+#
+# --method gptq  -> auto-gptq
+#   Build with CUDA extension:
+#     BUILD_CUDA_EXT=1 pip install auto-gptq --no-build-isolation
