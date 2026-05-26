@@ -68,17 +68,21 @@ def run_benchmark_jetson(model, tokenizer, input_len: int, output_len: int):
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True,
                        max_length=input_len).to(device)
 
+    # synced_gpus=False supaya transformers skip import torch.distributed.fsdp,
+    # yang gagal di build PyTorch Jetson (NVIDIA strip torch._C._distributed_c10d).
+    gen_kwargs = dict(max_new_tokens=output_len, do_sample=False, synced_gpus=False)
+
     # Warmup
     for _ in range(WARMUP_RUNS):
         with torch.no_grad():
-            model.generate(**inputs, max_new_tokens=output_len, do_sample=False)
+            model.generate(**inputs, **gen_kwargs)
 
     # Benchmark
     latencies = []
     for _ in range(BENCHMARK_RUNS):
         t0 = time.perf_counter()
         with torch.no_grad():
-            model.generate(**inputs, max_new_tokens=output_len, do_sample=False)
+            model.generate(**inputs, **gen_kwargs)
         latencies.append((time.perf_counter() - t0) * 1000)
 
     avg_lat = sum(latencies) / len(latencies)
