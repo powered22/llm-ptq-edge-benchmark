@@ -1,17 +1,25 @@
 #!/usr/bin/env bash
 # Tabel 1: Akurasi semua metode kuantisasi untuk Qwen2.5-0.5B-Instruct.
 # Engine: HF transformers + lm-evaluation-harness, di Linux GPU.
-# Preset 'full' (7 tasks): arc_easy, arc_challenge, hellaswag, winogrande,
-#                          mmlu, truthfulqa_mc, gsm8k.
 #
-# Estimasi: 30-60 menit per metode × 6 metode = 3-6 jam total di Linux GPU.
-# (Lebih lama di MMLU karena banyak subtask.)
+# Split tasks (berdasarkan smoketest comparison 2026-05-27):
+#   - Likelihood-based (log-prob multiple choice): TANPA chat template
+#       arc_easy, arc_challenge, hellaswag, winogrande, mmlu, truthfulqa_mc
+#     → Smoketest menunjukkan tanpa template +10pp lebih akurat untuk Qwen-Instruct.
+#   - Generative (free-form text): DENGAN chat template
+#       gsm8k
+#     → Convention: instruct model butuh chat format untuk produce structured answer.
+#
+# Output per metode: 2 file JSON
+#   ./results/eval/qwen2.5-0.5b-instruct_<label>_likelihood.json
+#   ./results/eval/qwen2.5-0.5b-instruct_<label>_gsm8k.json
+#
+# Total: 6 metode × 2 part = 12 lm-eval invocations. Estimasi 3-6 jam.
 #
 # Prasyarat:
 #   1. pip install 'lm-eval>=0.4.2' compressed-tensors accelerate
 #   2. export HF_TOKEN=hf_xxxxxxxx   (untuk model private poweredshine/*)
-#
-# Output: ./results/eval/qwen2.5-0.5b-instruct_<method>.json  (6 file)
+#   3. CUDA aktif (cek: python -c "import torch; print(torch.cuda.is_available())")
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
@@ -19,20 +27,19 @@ export PYTHONPATH="$(pwd):${PYTHONPATH:-}"
 
 if [[ -z "${HF_TOKEN:-}" ]]; then
     echo "ERROR: env var HF_TOKEN belum di-set."
-    echo "  Generate token Read di https://huggingface.co/settings/tokens"
-    echo "  Lalu: export HF_TOKEN=hf_xxxxxxxx"
+    echo "  export HF_TOKEN=hf_xxxxxxxx"
     exit 1
 fi
 
-TASKS="${TASKS:-full}"
+# Task split — JANGAN diubah tanpa re-validasi via smoketest.
+LIKELIHOOD_TASKS="arc_easy,arc_challenge,hellaswag,winogrande,mmlu,truthfulqa_mc"
+GEN_TASKS="gsm8k"
+
 BATCH_SIZE="${BATCH_SIZE:-8}"
 OUT_DIR="${OUT_DIR:-./results/eval}"
 mkdir -p "$OUT_DIR"
 
 # Format: "label:method:model_path"
-# - label : nama untuk file output
-# - method: argumen --method untuk run_lm_harness.py (label utk model loading)
-# - model_path: HF Hub ID atau path lokal
 METHODS=(
     "fp16:fp16:Qwen/Qwen2.5-0.5B-Instruct"
     "awqW4A16:awq:poweredshine/qwen2.5_0.5b_instruct_awq_w4a16"
@@ -42,6 +49,22 @@ METHODS=(
     "smoothW8A8:smoothquant:poweredshine/qwen2.5_0.5b_instruct_smooth_w8a8"
 )
 
+run_part() {
+    # run_part <model_path> <method> <tasks> <output> <use_template:0|1>
+    local model_path="$1" method="$2" tasks="$3" out="$4" use_template="$5"
+
+    if [[ -f "$out" ]] && [[ -z "${FORCE:-}" ]]; then
+        echo "    [skip] $out sudah ada (set FORCE=1 untuk re-run)"
+        return 0
+    fi
+
+    local args=(--model-path "$model_path" --method "$method" --tasks "$tasks"
+                --batch-size "$BATCH_SIZE" --output "$out")
+    [[ "$use_template" == "1" ]] && args+=(--apply-chat-template)
+
+    python3 evaluation/run_lm_harness.py "${args[@]}"
+}
+
 n_ok=0; n_fail=0; idx=0
 for spec in "${METHODS[@]}"; do
     idx=$((idx+1))
@@ -50,44 +73,44 @@ for spec in "${METHODS[@]}"; do
     method="${rest%%:*}"
     model_path="${rest#*:}"
 
-    OUT="$OUT_DIR/qwen2.5-0.5b-instruct_${label}.json"
+    OUT_LH="$OUT_DIR/qwen2.5-0.5b-instruct_${label}_likelihood.json"
+    OUT_GEN="$OUT_DIR/qwen2.5-0.5b-instruct_${label}_gsm8k.json"
 
     echo ""
     echo "##################################################"
-    echo "  [$idx/${#METHODS[@]}] $label"
-    echo "    Method  : $method"
-    echo "    Model   : $model_path"
-    echo "    Tasks   : $TASKS"
-    echo "    Output  : $OUT"
+    echo "  [$idx/${#METHODS[@]}] $label   ($method)"
+    echo "      Model: $model_path"
     echo "##################################################"
 
-    if [[ -f "$OUT" ]] && [[ -z "${FORCE:-}" ]]; then
-        echo "[skip] $OUT sudah ada. Set FORCE=1 untuk re-run."
+    echo ""
+    echo "  Part A: 6 likelihood tasks (NO chat template)"
+    if run_part "$model_path" "$method" "$LIKELIHOOD_TASKS" "$OUT_LH" 0; then
         n_ok=$((n_ok+1))
-        continue
+        echo "  Part A: OK"
+    else
+        n_fail=$((n_fail+1))
+        echo "  Part A: FAILED"
     fi
 
-    if python3 evaluation/run_lm_harness.py \
-        --model-path "$model_path" \
-        --method "$method" \
-        --tasks "$TASKS" \
-        --batch-size "$BATCH_SIZE" \
-        --apply-chat-template \
-        --output "$OUT"; then
+    echo ""
+    echo "  Part B: gsm8k (WITH chat template)"
+    if run_part "$model_path" "$method" "$GEN_TASKS" "$OUT_GEN" 1; then
         n_ok=$((n_ok+1))
+        echo "  Part B: OK"
     else
-        echo "[error] gagal eval $label"
         n_fail=$((n_fail+1))
+        echo "  Part B: FAILED"
     fi
 done
 
 echo ""
 echo "=================================================="
-echo "  Tabel 1 selesai. OK: $n_ok | Failed: $n_fail"
+echo "  Tabel 1 selesai."
+echo "  Total parts OK   : $n_ok / $((${#METHODS[@]} * 2))"
+echo "  Total parts FAIL : $n_fail"
 echo "=================================================="
 echo ""
-echo "File hasil di $OUT_DIR/:"
+echo "Output di $OUT_DIR/:"
 ls -lh "$OUT_DIR/"qwen2.5-0.5b-instruct_*.json 2>/dev/null || true
 echo ""
-echo "Selanjutnya: aggregate 6 JSON ini ke satu CSV Tabel 1."
-echo "Mau saya buatkan script aggregator-nya setelah ini? Beritahu saya."
+echo "Langkah selanjutnya: aggregate 12 JSON ini ke satu CSV Tabel 1."
