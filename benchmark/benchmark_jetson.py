@@ -50,8 +50,12 @@ def load_model_jetson(model_path: str, method: str):
         from awq import AutoAWQForCausalLM
         model = AutoAWQForCausalLM.from_quantized(model_path, fuse_layers=True)
     elif method == "gptq":
-        from auto_gptq import AutoGPTQForCausalLM
-        model = AutoGPTQForCausalLM.from_quantized(model_path, device="cuda")
+        # Model dibuat lewat llm-compressor → format compressed-tensors.
+        # transformers native loader auto-detect quantization_config di config.json
+        # dan pakai kernel compressed-tensors. TIDAK butuh library auto-gptq.
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path, device_map="cuda", trust_remote_code=True
+        )
     elif method in ("bnb4", "bnb8"):
         from models.load_bnb import load_bnb
         bits = 4 if method == "bnb4" else 8
