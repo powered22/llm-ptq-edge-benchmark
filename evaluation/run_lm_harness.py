@@ -33,7 +33,9 @@ BNB_ARGS = {
 
 def run_harness(model_path: str, tasks: str, method: str,
                 batch_size: int = 8, num_fewshot: int = 0,
-                output_path: str = None):
+                output_path: str = None,
+                apply_chat_template: bool = False,
+                fewshot_as_multiturn: bool = False):
     resolved_tasks = TASK_PRESETS.get(tasks, tasks)
     model_args = f"pretrained={model_path},trust_remote_code=True"
 
@@ -49,14 +51,19 @@ def run_harness(model_path: str, tasks: str, method: str,
         "--num_fewshot", str(num_fewshot),
         "--log_samples",
     ]
+    if apply_chat_template:
+        cmd += ["--apply_chat_template"]
+    if fewshot_as_multiturn:
+        cmd += ["--fewshot_as_multiturn"]
     if output_path:
         os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
         cmd += ["--output_path", output_path]
 
     print(f"Running lm_eval harness:")
-    print(f"  Tasks  : {resolved_tasks}")
-    print(f"  Method : {method}")
-    print(f"  Output : {output_path or 'stdout'}")
+    print(f"  Tasks         : {resolved_tasks}")
+    print(f"  Method        : {method}")
+    print(f"  Chat template : {apply_chat_template}")
+    print(f"  Output        : {output_path or 'stdout'}")
     subprocess.run(cmd, check=True)
 
 
@@ -72,6 +79,12 @@ if __name__ == "__main__":
     parser.add_argument("--num-fewshot", type=int, default=0)
     parser.add_argument("--output", default=None,
                         help="Path to save JSON results (optional)")
+    parser.add_argument("--apply-chat-template", action="store_true",
+                        help="Apply chat template ke prompts (untuk Instruct/chat models seperti Qwen2.5-*-Instruct).")
+    parser.add_argument("--fewshot-as-multiturn", action="store_true",
+                        help="Format few-shot examples sebagai multi-turn conversation. Hanya berlaku bila --apply-chat-template aktif & num_fewshot > 0.")
     args = parser.parse_args()
     run_harness(args.model_path, args.tasks, args.method,
-                args.batch_size, args.num_fewshot, args.output)
+                args.batch_size, args.num_fewshot, args.output,
+                apply_chat_template=args.apply_chat_template,
+                fewshot_as_multiturn=args.fewshot_as_multiturn)

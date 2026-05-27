@@ -72,6 +72,7 @@ for spec in "${METHODS[@]}"; do
         --method "$method" \
         --tasks "$TASKS" \
         --batch-size "$BATCH_SIZE" \
+        --apply-chat-template \
         --output "$OUT"; then
         n_ok=$((n_ok+1))
     else

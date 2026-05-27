@@ -33,6 +33,7 @@ python3 evaluation/run_lm_harness.py \
     --method fp16 \
     --tasks quick \
     --batch-size 8 \
+    --apply-chat-template \
     --output "$OUTPUT_JSON"
 
 echo ""
