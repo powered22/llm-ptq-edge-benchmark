@@ -64,7 +64,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="lm-eval harness wrapper")
     parser.add_argument("--model-path", required=True)
     parser.add_argument("--method", default="fp16",
-                        choices=["fp16", "awq", "gptq", "bnb4", "bnb8"])
+                        choices=["fp16", "awq", "gptq", "bnb4", "bnb8",
+                                 "rtn", "smoothquant"])
     parser.add_argument("--tasks", default="standard",
                         help="Preset name (quick/standard/full) or comma-separated task names")
     parser.add_argument("--batch-size", type=int, default=8)
