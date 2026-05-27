@@ -32,7 +32,7 @@ if [[ -z "${HF_TOKEN:-}" ]]; then
 fi
 
 # Task split — JANGAN diubah tanpa re-validasi via smoketest.
-LIKELIHOOD_TASKS="arc_easy,arc_challenge,hellaswag,winogrande,mmlu,truthfulqa_mc"
+LIKELIHOOD_TASKS="arc_easy,arc_challenge,hellaswag,winogrande,mmlu,truthfulqa_mc2"
 GEN_TASKS="gsm8k"
 
 BATCH_SIZE="${BATCH_SIZE:-8}"

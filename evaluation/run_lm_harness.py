@@ -21,7 +21,7 @@ import os
 TASK_PRESETS = {
     "quick":    "arc_easy,hellaswag",
     "standard": "arc_easy,arc_challenge,hellaswag,winogrande,mmlu",
-    "full":     "arc_easy,arc_challenge,hellaswag,winogrande,mmlu,truthfulqa_mc,gsm8k",
+    "full":     "arc_easy,arc_challenge,hellaswag,winogrande,mmlu,truthfulqa_mc2,gsm8k",
 }
 
 # BitsAndBytes needs special model_args
