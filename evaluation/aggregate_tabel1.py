@@ -16,6 +16,9 @@ from pathlib import Path
 
 # Metric mana dari lm-eval JSON yang kita pakai per task.
 # Konvensi standar di paper PTQ/LLM benchmarks.
+# Per-task metric. Bisa string (1 key) atau list (try in order, ambil yang ada).
+# Untuk gsm8k pakai flexible-extract dulu — strict-match terlalu strict untuk
+# Instruct models yang jawabnya conversational (bukan format "#### NNN" dataset).
 TASK_METRICS = {
     "arc_easy":        "acc_norm,none",
     "arc_challenge":   "acc_norm,none",
@@ -23,7 +26,8 @@ TASK_METRICS = {
     "winogrande":      "acc,none",
     "mmlu":            "acc,none",
     "truthfulqa_mc2":  "acc,none",
-    "gsm8k":           "exact_match,strict-match",
+    "gsm8k":           ["exact_match,flexible-extract", "exact_match,strict-match"],
+    "ifeval":          ["prompt_level_strict_acc,none", "inst_level_strict_acc,none"],
 }
 TASK_ORDER = list(TASK_METRICS.keys())
 
@@ -63,14 +67,18 @@ def load_results(json_path: Path) -> dict:
 
 
 def get_metric(results: dict, task: str):
-    """Return (value, stderr) untuk task tertentu. None kalau missing."""
+    """Return (value, stderr) untuk task tertentu. Support fallback list of keys.
+    Iterasi candidate keys; ambil yang pertama ditemukan di results."""
     task_data = results.get(task, {})
-    metric_key = TASK_METRICS[task]
-    base, _, filt = metric_key.partition(",")
-    val = task_data.get(metric_key)
-    err_key = f"{base}_stderr,{filt}"
-    err = task_data.get(err_key)
-    return val, err
+    keys = TASK_METRICS[task]
+    if isinstance(keys, str):
+        keys = [keys]
+    for metric_key in keys:
+        if metric_key in task_data:
+            base, _, filt = metric_key.partition(",")
+            err_key = f"{base}_stderr,{filt}"
+            return task_data.get(metric_key), task_data.get(err_key)
+    return None, None
 
 
 def main():
@@ -100,8 +108,9 @@ def main():
 
         lh_file = find_result_file(eval_dir, label, "likelihood")
         gen_file = find_result_file(eval_dir, label, "gsm8k")
+        ifeval_file = find_result_file(eval_dir, label, "ifeval")
 
-        if lh_file is None and gen_file is None:
+        if lh_file is None and gen_file is None and ifeval_file is None:
             print(f"[skip] {label}: tidak ada file result ditemukan di {eval_dir}")
             row["_status"] = "MISSING"
             for task in TASK_ORDER:
@@ -110,12 +119,14 @@ def main():
             rows.append(row)
             continue
 
-        # Merge results dari kedua part
+        # Merge results dari semua part (likelihood + gsm8k + ifeval)
         results = {}
         if lh_file:
             results.update(load_results(lh_file))
         if gen_file:
             results.update(load_results(gen_file))
+        if ifeval_file:
+            results.update(load_results(ifeval_file))
 
         task_scores = []
         for task in TASK_ORDER:
@@ -129,7 +140,9 @@ def main():
         row["n_tasks_completed"] = len(task_scores)
         row["_lh_file"] = lh_file.name if lh_file else "MISSING"
         row["_gsm8k_file"] = gen_file.name if gen_file else "MISSING"
-        row["_status"] = "OK" if len(task_scores) == 7 else f"PARTIAL ({len(task_scores)}/7)"
+        row["_ifeval_file"] = ifeval_file.name if ifeval_file else "MISSING"
+        n_total = len(TASK_ORDER)
+        row["_status"] = "OK" if len(task_scores) == n_total else f"PARTIAL ({len(task_scores)}/{n_total})"
 
         if label == "fp16" and row["avg"] is not None:
             fp16_avg = row["avg"]
@@ -153,7 +166,7 @@ def main():
     short_tasks = {"arc_easy": "arc_e", "arc_challenge": "arc_c",
                    "hellaswag": "hella", "winogrande": "wino",
                    "mmlu": "mmlu", "truthfulqa_mc2": "tqa_mc2",
-                   "gsm8k": "gsm8k"}
+                   "gsm8k": "gsm8k", "ifeval": "ifeval"}
     for task in TASK_ORDER:
         header += f"{short_tasks[task]:>9}"
     header += f"{'Avg':>9}{'Δ vs FP16':>11}{'Status':>14}"
@@ -178,7 +191,7 @@ def main():
         fieldnames.append(task)
         fieldnames.append(f"{task}_stderr")
     fieldnames += ["avg", "delta_vs_fp16_pp", "n_tasks_completed",
-                   "_status", "_lh_file", "_gsm8k_file"]
+                   "_status", "_lh_file", "_gsm8k_file", "_ifeval_file"]
 
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     with open(args.output, "w", newline="") as f:

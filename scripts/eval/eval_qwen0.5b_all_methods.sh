@@ -34,6 +34,8 @@ fi
 # Task split — JANGAN diubah tanpa re-validasi via smoketest.
 LIKELIHOOD_TASKS="arc_easy,arc_challenge,hellaswag,winogrande,mmlu,truthfulqa_mc2"
 GEN_TASKS="gsm8k"
+# Tambahan dari Open LLM Leaderboard v2 — instruction-following, cocok untuk Instruct models.
+IFEVAL_TASKS="ifeval"
 
 BATCH_SIZE="${BATCH_SIZE:-8}"
 OUT_DIR="${OUT_DIR:-./results/eval}"
@@ -49,14 +51,38 @@ METHODS=(
     "smoothW8A8:smoothquant:poweredshine/qwen2.5_0.5b_instruct_smooth_w8a8"
 )
 
+is_valid_json() {
+    # Return 0 jika file valid JSON parseable, non-zero kalau corrupt/empty.
+    python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$1" 2>/dev/null
+}
+
 run_part() {
     # run_part <model_path> <method> <tasks> <output> <use_template:0|1>
     local model_path="$1" method="$2" tasks="$3" out="$4" use_template="$5"
 
-    if [[ -f "$out" ]] && [[ -z "${FORCE:-}" ]]; then
-        echo "    [skip] $out sudah ada (set FORCE=1 untuk re-run)"
-        return 0
+    # lm-eval-harness append _<TIMESTAMP> ke filename --output_path.
+    # Cari semua match: literal path + timestamped variants.
+    local prefix="${out%.json}"
+    shopt -s nullglob
+    local matches=( "$out" "${prefix}_"*.json )
+    shopt -u nullglob
+
+    if [[ -z "${FORCE:-}" ]]; then
+        for f in "${matches[@]}"; do
+            [[ -f "$f" ]] || continue
+            if is_valid_json "$f"; then
+                echo "    [skip] $f sudah ada & valid"
+                return 0
+            fi
+        done
     fi
+
+    # Hapus corrupt/partial yang ada (kalau ada)
+    for f in "${matches[@]}"; do
+        if [[ -f "$f" ]] && ! is_valid_json "$f"; then
+            rm "$f" && echo "    [clean] hapus corrupt: $f"
+        fi
+    done
 
     local args=(--model-path "$model_path" --method "$method" --tasks "$tasks"
                 --batch-size "$BATCH_SIZE" --output "$out")
@@ -75,6 +101,7 @@ for spec in "${METHODS[@]}"; do
 
     OUT_LH="$OUT_DIR/qwen2.5-0.5b-instruct_${label}_likelihood.json"
     OUT_GEN="$OUT_DIR/qwen2.5-0.5b-instruct_${label}_gsm8k.json"
+    OUT_IFEVAL="$OUT_DIR/qwen2.5-0.5b-instruct_${label}_ifeval.json"
 
     echo ""
     echo "##################################################"
@@ -101,12 +128,22 @@ for spec in "${METHODS[@]}"; do
         n_fail=$((n_fail+1))
         echo "  Part B: FAILED"
     fi
+
+    echo ""
+    echo "  Part C: ifeval (WITH chat template)"
+    if run_part "$model_path" "$method" "$IFEVAL_TASKS" "$OUT_IFEVAL" 1; then
+        n_ok=$((n_ok+1))
+        echo "  Part C: OK"
+    else
+        n_fail=$((n_fail+1))
+        echo "  Part C: FAILED"
+    fi
 done
 
 echo ""
 echo "=================================================="
 echo "  Tabel 1 selesai."
-echo "  Total parts OK   : $n_ok / $((${#METHODS[@]} * 2))"
+echo "  Total parts OK   : $n_ok / $((${#METHODS[@]} * 3))"
 echo "  Total parts FAIL : $n_fail"
 echo "=================================================="
 echo ""
