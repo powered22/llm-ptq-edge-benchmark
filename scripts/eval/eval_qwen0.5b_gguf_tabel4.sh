@@ -46,7 +46,11 @@ BATCH_SIZE="${BATCH_SIZE:-4}"
 N_GPU_LAYERS="${N_GPU_LAYERS:-99}"   # 99 = semua layer ke GPU
 N_CTX="${N_CTX:-2048}"
 SERVER_PORT="${SERVER_PORT:-8080}"
-BASE_URL="http://localhost:${SERVER_PORT}"
+# Pakai OpenAI-compatible endpoint /v1/completions — local-completions backend
+# memparsing response-nya dengan benar (tidak seperti backend gguf yang lama).
+BASE_URL_COMPLETIONS="http://localhost:${SERVER_PORT}/v1/completions"
+# Tokenizer HF yang match dengan model di GGUF (mereka di-convert dari Qwen 0.5B-Instruct)
+HF_TOKENIZER="${HF_TOKENIZER:-Qwen/Qwen2.5-0.5B-Instruct}"
 
 # Variabel global untuk track server PID dan log path supaya bisa di-cleanup
 SERVER_PID=""
@@ -126,9 +130,15 @@ run_part() {
         fi
     done
 
+    # Backend local-completions menggunakan endpoint OpenAI-compatible
+    # llama-server (/v1/completions), parse logprobs dengan benar.
+    local model_args="model=qwen-gguf,base_url=$BASE_URL_COMPLETIONS"
+    model_args+=",tokenizer_backend=huggingface,tokenizer=$HF_TOKENIZER"
+    model_args+=",num_concurrent=1,max_retries=3"
+
     local args=(
-        --model gguf
-        --model_args "base_url=$BASE_URL"
+        --model local-completions
+        --model_args "$model_args"
         --tasks "$tasks"
         --batch_size "$BATCH_SIZE"
         --log_samples
