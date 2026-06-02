@@ -46,9 +46,11 @@ BATCH_SIZE="${BATCH_SIZE:-4}"
 N_GPU_LAYERS="${N_GPU_LAYERS:-99}"   # 99 = semua layer ke GPU
 N_CTX="${N_CTX:-2048}"
 SERVER_PORT="${SERVER_PORT:-8080}"
+# Base URL untuk health check + ping server
+BASE_URL="http://localhost:${SERVER_PORT}"
 # Pakai OpenAI-compatible endpoint /v1/completions — local-completions backend
 # memparsing response-nya dengan benar (tidak seperti backend gguf yang lama).
-BASE_URL_COMPLETIONS="http://localhost:${SERVER_PORT}/v1/completions"
+BASE_URL_COMPLETIONS="${BASE_URL}/v1/completions"
 # Tokenizer HF yang match dengan model di GGUF (mereka di-convert dari Qwen 0.5B-Instruct)
 HF_TOKENIZER="${HF_TOKENIZER:-Qwen/Qwen2.5-0.5B-Instruct}"
 
