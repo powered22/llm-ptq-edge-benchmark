@@ -83,9 +83,9 @@ def get_metric(results: dict, task: str):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--eval-dir", default="./results/eval",
-                    help="Directory berisi JSON output lm-eval")
-    ap.add_argument("--output", default="./results/eval/tabel1_qwen2.5-0.5b-instruct.csv",
+    ap.add_argument("--eval-dir", default="./results/eval/tabel1_hf",
+                    help="Directory berisi JSON output lm-eval (HF transformers)")
+    ap.add_argument("--output", default="./results/eval/tabel1_hf/tabel1_qwen2.5-0.5b-instruct.csv",
                     help="Path CSV output")
     args = ap.parse_args()
 

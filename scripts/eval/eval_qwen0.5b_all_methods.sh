@@ -38,7 +38,7 @@ GEN_TASKS="gsm8k"
 IFEVAL_TASKS="ifeval"
 
 BATCH_SIZE="${BATCH_SIZE:-8}"
-OUT_DIR="${OUT_DIR:-./results/eval}"
+OUT_DIR="${OUT_DIR:-./results/eval/tabel1_hf}"
 mkdir -p "$OUT_DIR"
 
 # Format: "label:method:model_path"

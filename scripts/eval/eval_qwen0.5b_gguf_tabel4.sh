@@ -28,7 +28,7 @@ cd "$(dirname "$0")/../.."
 export PYTHONPATH="$(pwd):${PYTHONPATH:-}"
 
 GGUF_DIR="./results/qwen2.5_0.5b_instruct_gguf"
-OUT_DIR="${OUT_DIR:-./results/eval}"
+OUT_DIR="${OUT_DIR:-./results/eval/tabel4_gguf}"
 mkdir -p "$OUT_DIR"
 
 # Schemes — sinkron dengan Tabel 2

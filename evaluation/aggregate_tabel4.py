@@ -61,8 +61,8 @@ def get_metric(results: dict, task: str):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--eval-dir", default="./results/eval")
-    ap.add_argument("--output", default="./results/eval/tabel4_qwen2.5-0.5b-instruct_gguf.csv")
+    ap.add_argument("--eval-dir", default="./results/eval/tabel4_gguf")
+    ap.add_argument("--output", default="./results/eval/tabel4_gguf/tabel4_qwen2.5-0.5b-instruct_gguf.csv")
     args = ap.parse_args()
 
     eval_dir = Path(args.eval_dir)
