@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
-# Tabel 4 FULL: 8 task akurasi (sama dengan Tabel 1) via custom llama-cpp-direct backend.
-# Bypass HTTP — pakai llama-cpp-python langsung lewat lm-eval-harness.
+# Tabel 4 FULL: 8 task akurasi via custom llama-cpp-direct backend.
+# 0-shot semua tasks → konsisten dengan Tabel 1 yang juga 0-shot (internal apple-to-apple).
 #
-# Output sama struktur dengan Tabel 1:
+# Task split sama dengan Tabel 1:
+#   - Likelihood (no chat template): arc_easy, arc_challenge, hellaswag,
+#                                    winogrande, mmlu, truthfulqa_mc2
+#   - Generative (with chat template): gsm8k, ifeval
+#
+# Output: 3 file JSON per scheme → 5 schemes × 3 part = 15 files
 #   ./results/eval/tabel4_gguf/tabel4_<SCHEME>_{likelihood,gsm8k,ifeval}.json
-# → Bisa di-aggregate pakai aggregate_tabel4.py (yang sudah ada).
 #
-# Estimasi: BERAT — likelihood evaluation per-request lewat llama-cpp-python ~5-20× lebih
-# lambat dari HF transformers, karena logits_all=True + tidak ada batching.
-# Total ~3-8 jam per scheme = ~15-40 jam total. Sebaiknya pakai --limit untuk subsample.
+# Prasyarat:
+#   1. Fix torch CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu124
+#   2. llama-cpp-python terinstall (sudah)
+#   3. lm-eval-harness + dependencies (tenacity untuk api models, langdetect untuk ifeval)
+#
+# Estimasi: ~3-6 jam per scheme dengan LIMIT=500 → ~15-30 jam total.
+# Pakai LIMIT untuk subsample atau biarkan kosong untuk full eval.
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
@@ -19,6 +27,8 @@ OUT_DIR="${OUT_DIR:-./results/eval/tabel4_gguf}"
 mkdir -p "$OUT_DIR"
 
 SCHEMES=(F16 Q8_0 Q5_K_M Q4_K_M Q4_0)
+
+# Task groups (sinkron dengan eval_qwen0.5b_all_methods.sh untuk Tabel 1)
 LIKELIHOOD_TASKS="arc_easy,arc_challenge,hellaswag,winogrande,mmlu,truthfulqa_mc2"
 GEN_TASKS="gsm8k"
 IFEVAL_TASKS="ifeval"
@@ -26,7 +36,8 @@ IFEVAL_TASKS="ifeval"
 N_GPU_LAYERS="${N_GPU_LAYERS:-99}"
 N_CTX="${N_CTX:-2048}"
 BATCH_SIZE="${BATCH_SIZE:-1}"
-LIMIT="${LIMIT:-}"   # set ke angka (mis. 200) untuk subsample, kosong untuk full
+LIMIT="${LIMIT:-}"
+
 
 is_valid_json() {
     python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$1" 2>/dev/null
@@ -44,7 +55,7 @@ run_part() {
         for f in "${matches[@]}"; do
             [[ -f "$f" ]] || continue
             if is_valid_json "$f"; then
-                echo "    [skip] $f sudah ada & valid"
+                echo "    [skip] $f sudah valid"
                 return 0
             fi
         done
@@ -60,6 +71,7 @@ run_part() {
         --model llama-cpp-direct
         --model_args "pretrained=$gguf_file,n_ctx=$N_CTX,n_gpu_layers=$N_GPU_LAYERS"
         --tasks "$tasks"
+        --num_fewshot 0
         --batch_size "$BATCH_SIZE"
         --log_samples
         --output_path "$out"
@@ -86,21 +98,21 @@ for scheme in "${SCHEMES[@]}"; do
     echo "  [$idx/${#SCHEMES[@]}] Scheme: $scheme"
     echo "##################################################"
 
-    echo ""; echo "  Part A: 6 likelihood tasks (NO chat template)"
+    echo ""; echo "  Part A: 6 likelihood tasks (0-shot, NO chat template)"
     if run_part "$gguf_file" "$LIKELIHOOD_TASKS" "$OUT_LH" 0; then
         n_ok=$((n_ok+1)); echo "  Part A: OK"
     else
         n_fail=$((n_fail+1)); echo "  Part A: FAILED"
     fi
 
-    echo ""; echo "  Part B: gsm8k (WITH chat template)"
+    echo ""; echo "  Part B: gsm8k (0-shot, WITH chat template)"
     if run_part "$gguf_file" "$GEN_TASKS" "$OUT_GEN" 1; then
         n_ok=$((n_ok+1)); echo "  Part B: OK"
     else
         n_fail=$((n_fail+1)); echo "  Part B: FAILED"
     fi
 
-    echo ""; echo "  Part C: ifeval (WITH chat template)"
+    echo ""; echo "  Part C: ifeval (0-shot, WITH chat template)"
     if run_part "$gguf_file" "$IFEVAL_TASKS" "$OUT_IFEVAL" 1; then
         n_ok=$((n_ok+1)); echo "  Part C: OK"
     else
@@ -110,8 +122,7 @@ done
 
 echo ""
 echo "=================================================="
-echo "  Selesai. OK: $n_ok / $((${#SCHEMES[@]} * 3)) | Failed: $n_fail"
+echo "  Tabel 4 selesai. OK: $n_ok / $((${#SCHEMES[@]} * 3)) | Failed: $n_fail"
 echo "=================================================="
 echo ""
-echo "Aggregate:"
-echo "  python3 evaluation/aggregate_tabel4.py"
+echo "Aggregate: python3 evaluation/aggregate_tabel4.py"
