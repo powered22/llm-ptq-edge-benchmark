@@ -28,14 +28,21 @@ N_GPU_LAYERS="${N_GPU_LAYERS:-99}"
 N_CTX="${N_CTX:-2048}"
 WIKI_TEST="$DATA_DIR/wikitext-2-raw/wiki.test.raw"
 
-# Download wikitext-2 raw test set kalau belum ada (~1 MB, sekali saja)
+# Download wikitext-2 raw test set kalau belum ada (~1 MB, sekali saja).
+# Pakai HuggingFace datasets (lebih reliable dari Salesforce S3 yang sering hang).
 if [[ ! -f "$WIKI_TEST" ]]; then
-    echo "[setup] Download wikitext-2 raw dataset..."
-    cd "$DATA_DIR"
-    wget -q https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-raw-v1.zip
-    unzip -q wikitext-2-raw-v1.zip
-    rm wikitext-2-raw-v1.zip
-    cd "$REPO_ROOT"
+    echo "[setup] Download wikitext-2 dari HuggingFace datasets..."
+    mkdir -p "$(dirname "$WIKI_TEST")"
+    python3 - <<EOF
+from datasets import load_dataset
+print("  Loading dataset...")
+ds = load_dataset("Salesforce/wikitext", "wikitext-2-raw-v1", split="test")
+print(f"  Got {len(ds)} rows, writing to file...")
+with open("$WIKI_TEST", "w") as f:
+    for row in ds:
+        f.write(row["text"])
+print(f"  Saved to: $WIKI_TEST")
+EOF
 fi
 
 [[ -f "$WIKI_TEST" ]] || { echo "ERROR: $WIKI_TEST tidak ada setelah download"; exit 1; }
