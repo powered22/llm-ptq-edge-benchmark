@@ -17,6 +17,7 @@ Cara pakai (lewat wrapper scripts/run_lm_eval_gguf.py):
         --model_args pretrained=/path/to/model.gguf,n_ctx=2048,n_gpu_layers=99 \\
         --tasks arc_easy --output_path out.json
 """
+from pathlib import Path
 from typing import Tuple
 
 import numpy as np
@@ -27,6 +28,9 @@ from tqdm import tqdm
 
 # Berapa baris logits diproses sekaligus. 64 x 151936 x 8 byte ~ 78 MB.
 _ROW_CHUNK = 64
+
+# Supaya peringatan chat-template hanya dicetak sekali.
+_WARNED_TEMPLATE = False
 
 
 @register_model("llama-cpp-direct")
@@ -72,6 +76,46 @@ class LlamaCppDirectLM(LM):
 
     def tok_decode(self, tokens):
         return self.llm.detokenize(tokens).decode("utf-8", errors="ignore")
+
+    # -- dukungan --apply_chat_template (dibutuhkan gsm8k & ifeval) --
+    @property
+    def tokenizer_name(self) -> str:
+        """Dipakai lm-eval sebagai bagian cache key / metadata hasil."""
+        return Path(self.llm.model_path).stem
+
+    def _gguf_chat_template(self):
+        meta = getattr(self.llm, "metadata", None) or {}
+        return meta.get("tokenizer.chat_template")
+
+    def chat_template(self, chat_template=False):
+        return self._gguf_chat_template() or "chatml-fallback"
+
+    def apply_chat_template(self, chat_history, add_generation_prompt=True) -> str:
+        """Render chat template yang TERTANAM di GGUF, supaya prompt-nya
+        identik dengan jalur HF di Tabel 1. Fallback ke ChatML polos."""
+        global _WARNED_TEMPLATE
+        tmpl = self._gguf_chat_template()
+        if tmpl:
+            try:
+                from jinja2 import Template
+                return Template(tmpl).render(
+                    messages=chat_history,
+                    add_generation_prompt=add_generation_prompt,
+                    bos_token="",
+                    eos_token="<|im_end|>",
+                )
+            except Exception as e:
+                if not _WARNED_TEMPLATE:
+                    print(f"[warn] gagal render chat_template GGUF ({e}) -> ChatML polos")
+                    _WARNED_TEMPLATE = True
+        elif not _WARNED_TEMPLATE:
+            print("[warn] GGUF tidak punya tokenizer.chat_template -> ChatML polos")
+            _WARNED_TEMPLATE = True
+        parts = [f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n"
+                 for m in chat_history]
+        if add_generation_prompt:
+            parts.append("<|im_start|>assistant\n")
+        return "".join(parts)
 
     # -- helper --
     def _raw_scores(self, n_tokens):
