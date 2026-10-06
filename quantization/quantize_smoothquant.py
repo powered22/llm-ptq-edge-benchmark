@@ -15,9 +15,8 @@ import argparse
 import os
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from llmcompressor import oneshot
-from llmcompressor.modifiers.smoothquant import SmoothQuantModifier
+from llmcompressor.modifiers.transform.smoothquant import SmoothQuantModifier
 from llmcompressor.modifiers.quantization import QuantizationModifier
-
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
@@ -36,10 +35,10 @@ def quantize_smoothquant(
 
     # Create recipe: SmoothQuant + W8A8 quantization
     # SmoothQuant migrates difficulty from activations to weights (alpha=0.5 is balanced)
-    smoothquant_recipe = SmoothQuantModifier(alpha=alpha)
+    smoothquant_recipe = SmoothQuantModifier(smoothing_strength=alpha)
     quantization_recipe = QuantizationModifier(
         targets="Linear",
-        scheme="w8a8",
+        scheme="W8A8",
         ignore=["lm_head"],
     )
 
@@ -84,3 +83,5 @@ if __name__ == "__main__":
     quantize_smoothquant(
         args.model, args.output, args.alpha, args.num_calibration_samples
     )
+
+    
