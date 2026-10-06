@@ -25,15 +25,19 @@ from tqdm import tqdm
 
 
 def get_calibration_data(tokenizer, n_samples: int = 512, seq_len: int = 512):
-    """Load wikitext2 calibration data for SmoothQuant."""
+    """Load wikitext2 calibration data in format expected by llm-compressor."""
+    from datasets import Dataset
     data = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
     texts = [t["text"] for t in data if len(t["text"].strip()) > 50][:n_samples]
 
-    def _loader():
-        for text in tqdm(texts, desc="Preparing calibration data"):
-            yield tokenizer(text, return_tensors="pt", truncation=True,
-                           max_length=seq_len)
-    return _loader()
+    # Tokenize all texts into a dataset (llm-compressor standard format)
+    tokenized = []
+    for text in tqdm(texts, desc="Tokenizing calibration data"):
+        enc = tokenizer(text, truncation=True, max_length=seq_len)
+        tokenized.append(enc["input_ids"])
+
+    # Return as datasets.Dataset with input_ids (llm-compressor compatible)
+    return Dataset.from_dict({"input_ids": tokenized})
 
 
 def quantize_smoothquant(model_name: str, output_dir: str, alpha: float = 0.5,
