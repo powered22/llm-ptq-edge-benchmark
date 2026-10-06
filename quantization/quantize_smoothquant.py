@@ -1,85 +1,86 @@
-"""Apply SmoothQuant W8A8 quantization using llm-compressor.
+"""
+SmoothQuant W8A8 quantization via llm-compressor.
 
-SmoothQuant migrates quantization difficulty from activations to weights
-by scaling them with a per-channel factor s, controlled by alpha.
-Uses llm-compressor's SmoothQuantModifier + QuantizationModifier (W8A8 scheme)
-in compressed-tensors format for consistency with Table 1 AWQ/GPTQ/RTN rows.
-
-Reference: https://github.com/mit-han-lab/smoothquant
-Paper: Xiao et al. "SmoothQuant: Accurate and Efficient Post-Training
-       Quantization for Large Language Models" (ICML 2023)
+SmoothQuant applies activation-aware smoothing, then quantizes weights and activations
+to INT8 (W8A8). Uses llmcompressor's oneshot API with SmoothQuantModifier.
 
 Usage:
     python quantization/quantize_smoothquant.py \
         --model Qwen/Qwen2.5-0.5B-Instruct \
         --output ./results/qwen0.5b-instruct-smoothquant-w8a8 \
         --alpha 0.5 \
-        --num_calib_samples 512
+        --num-calibration-samples 512
 """
 import argparse
-from llmcompressor.modifiers.quantization import QuantizationModifier
+import os
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from llmcompressor import oneshot
 from llmcompressor.modifiers.smoothquant import SmoothQuantModifier
-from llmcompressor.transformers import SparseAutoModelForCausalLM, SparseAutoTokenizer
-from datasets import load_dataset
-from tqdm import tqdm
+from llmcompressor.modifiers.quantization import QuantizationModifier
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-def get_calibration_data(tokenizer, n_samples: int = 512, seq_len: int = 512):
-    """Load wikitext2 calibration data in format expected by llm-compressor."""
-    from datasets import Dataset
-    data = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
-    texts = [t["text"] for t in data if len(t["text"].strip()) > 50][:n_samples]
-
-    # Tokenize all texts into a dataset (llm-compressor standard format)
-    tokenized = []
-    for text in tqdm(texts, desc="Tokenizing calibration data"):
-        enc = tokenizer(text, truncation=True, max_length=seq_len)
-        tokenized.append(enc["input_ids"])
-
-    # Return as datasets.Dataset with input_ids (llm-compressor compatible)
-    return Dataset.from_dict({"input_ids": tokenized})
-
-
-def quantize_smoothquant(model_name: str, output_dir: str, alpha: float = 0.5,
-                        num_calib_samples: int = 512):
-    """Apply SmoothQuant W8A8 using llm-compressor recipe."""
+def quantize_smoothquant(
+    model_name: str,
+    output_dir: str,
+    alpha: float = 0.5,
+    num_calibration_samples: int = 512,
+):
+    """Apply SmoothQuant W8A8 using llmcompressor oneshot."""
     print(f"Loading {model_name}...")
-    tokenizer = SparseAutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-    model = SparseAutoModelForCausalLM.from_pretrained(
-        model_name, device_map="auto", trust_remote_code=True
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name, torch_dtype="auto", device_map="auto", trust_remote_code=True
     )
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 
-    print(f"Preparing calibration data ({num_calib_samples} samples)...")
-    calib_data = get_calibration_data(tokenizer, num_calib_samples)
-
-    # llm-compressor recipe: SmoothQuant + W8A8 INT8 quantization
-    print(f"Applying SmoothQuant (alpha={alpha}) + W8A8 INT8 quantization...")
-
-    smoothquant_modifier = SmoothQuantModifier(alpha=alpha)
-    quantization_modifier = QuantizationModifier(
+    # Create recipe: SmoothQuant + W8A8 quantization
+    # SmoothQuant migrates difficulty from activations to weights (alpha=0.5 is balanced)
+    smoothquant_recipe = SmoothQuantModifier(alpha=alpha)
+    quantization_recipe = QuantizationModifier(
+        targets="Linear",
         scheme="w8a8",
-        ignore=["lm_head"],  # Don't quantize output layer
+        ignore=["lm_head"],
     )
 
-    # Apply modifiers in sequence
-    smoothquant_modifier.apply(model)
-    quantization_modifier.apply(model, calibration_data=calib_data)
+    print(f"Applying SmoothQuant (alpha={alpha}) + W8A8 quantization...")
+    print(f"Calibration: wikitext-2, {num_calibration_samples} samples")
 
-    print(f"Saving quantized model to {output_dir}...")
-    model.save_pretrained(output_dir, save_compressed=True)
+    # Apply both modifiers via oneshot
+    oneshot(
+        model=model,
+        tokenizer=tokenizer,
+        recipe=[smoothquant_recipe, quantization_recipe],  # Apply in sequence
+        dataset="wikitext",
+        dataset_config_name="wikitext-2-raw-v1",
+        splits="train",
+        num_calibration_samples=num_calibration_samples,
+        max_seq_length=512,
+        output_dir=output_dir,
+    )
+
     tokenizer.save_pretrained(output_dir)
     print(f"✓ SmoothQuant W8A8 model saved to {output_dir}")
-    print(f"  Format: compressed-tensors (compatible with Table 1 evaluation pipeline)")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SmoothQuant W8A8 quantization")
     parser.add_argument("--model", required=True, help="Model ID on HF Hub")
     parser.add_argument("--output", required=True, help="Output directory")
-    parser.add_argument("--alpha", type=float, default=0.5,
-                        help="SmoothQuant migration factor (0=activations, 1=weights)")
-    parser.add_argument("--num_calib_samples", type=int, default=512,
-                        help="Number of wikitext2 calibration samples")
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.5,
+        help="SmoothQuant migration factor (0=activations, 1=weights)",
+    )
+    parser.add_argument(
+        "--num-calibration-samples",
+        type=int,
+        default=512,
+        help="Number of wikitext2 calibration samples",
+    )
     args = parser.parse_args()
 
-    quantize_smoothquant(args.model, args.output, args.alpha, args.num_calib_samples)
+    quantize_smoothquant(
+        args.model, args.output, args.alpha, args.num_calibration_samples
+    )
