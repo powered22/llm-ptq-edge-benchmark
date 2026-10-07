@@ -93,6 +93,8 @@ def main():
     ap.add_argument("--bench-json", required=True)
     ap.add_argument("--tegra-log", required=True)
     ap.add_argument("--csv", required=True)
+    ap.add_argument("--runtime-json", default=None,
+                    help="HF runs only: memory/swap diagnostics from benchmark_hf_jetson.py")
     args = ap.parse_args()
 
     bench = parse_bench(args.bench_json)
@@ -137,6 +139,15 @@ def main():
         "speedup_vs_hf_fp16": round(speedup, 2),
     }
 
+    if args.runtime_json:
+        with open(args.runtime_json) as f:
+            rt = json.load(f)
+        # tegrastats only covers the timed reps for HF, so its first sample is already after model load
+        row["ram_delta_mb"] = round(rt["peak_used_mb"] - rt["baseline_used_mb"])
+        row["torch_peak_alloc_mb"] = rt["torch_peak_alloc_mb"]
+        row["min_mem_available_mb"] = rt["min_mem_available_mb"]
+        row["max_swap_used_mb"] = rt["max_swap_used_mb"]
+
     csv_path = Path(args.csv)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     write_header = not csv_path.exists()
@@ -153,7 +164,7 @@ def main():
     print(f"  Generation  (tg64)    : {tg_tps:.2f} ± {tg_std:.2f} tok/s")
     print(f"  Latency (256+64 tok)  : {latency_total_ms:.1f} ms")
     print(f"  Throughput overall    : {throughput_overall:.2f} tok/s")
-    print(f"  Peak RAM              : {tegra['peak_ram_mb']} MB  (Δ {tegra['ram_delta_mb']} MB)")
+    print(f"  Peak RAM              : {tegra['peak_ram_mb']} MB  (Δ {row['ram_delta_mb']} MB)")
     print(f"  Avg power (VDD_IN)    : {tegra['avg_power_mw']:.0f} mW  ({tegra['n_samples']} samples)")
     print(f"  Avg GPU util          : {tegra['avg_gpu_util_pct']:.1f} %")
     print(f"  Energy / token        : {energy_per_token_mj:.2f} mJ")
