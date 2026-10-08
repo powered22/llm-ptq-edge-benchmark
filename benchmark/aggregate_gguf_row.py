@@ -22,38 +22,54 @@ RE_RAM = re.compile(r'RAM (\d+)/\d+MB')
 RE_GR3D = re.compile(r'GR3D_FREQ (\d+)%')
 
 
-def parse_tegra(path: str):
-    """Return dict: avg_power_mw, peak_ram_mb, ram_delta_mb, avg_gpu_util_pct."""
-    powers, rams, gpus = [], [], []
+def parse_tegra(path: str, active_gpu_pct: float = 0.0):
+    """Return dict: avg_power_mw, peak_ram_mb, ram_delta_mb, avg_gpu_util_pct.
+
+    active_gpu_pct > 0 trims the log to the inference window before averaging power and GPU util:
+    from the first sample whose GR3D_FREQ >= the threshold to the last such sample. This drops the
+    idle lead-in and the model-load phase that llama-bench runs inside the same tegrastats log.
+    RAM stats always use the full log (first sample = baseline before the run).
+    """
+    samples = []  # (power_mw, gpu_pct) per tegrastats line
+    rams = []
     with open(path) as f:
         for line in f:
-            m = RE_POWER_VDD_IN.search(line)
-            if m:
-                powers.append(int(m.group(1)))
-            m = RE_RAM.search(line)
-            if m:
-                rams.append(int(m.group(1)))
-            m = RE_GR3D.search(line)
-            if m:
-                gpus.append(int(m.group(1)))
+            pm = RE_POWER_VDD_IN.search(line)
+            rm = RE_RAM.search(line)
+            gm = RE_GR3D.search(line)
+            if rm:
+                rams.append(int(rm.group(1)))
+            if pm:
+                samples.append((int(pm.group(1)), int(gm.group(1)) if gm else 0))
 
-    if not powers:
+    if not samples:
         print(f"[warn] No VDD_IN samples in {path} — apakah tegrastats jalan dengan sudo?")
     if not rams:
         print(f"[warn] No RAM samples in {path}")
 
-    avg_power = sum(powers) / len(powers) if powers else 0.0
+    full_power = sum(p for p, _ in samples) / len(samples) if samples else 0.0
+    window = samples
+    if active_gpu_pct > 0 and samples:
+        active = [i for i, (_, g) in enumerate(samples) if g >= active_gpu_pct]
+        if active:
+            window = samples[active[0]:active[-1] + 1]
+        else:
+            print(f"[warn] no sample with GR3D_FREQ >= {active_gpu_pct}% — using the full log")
+
+    avg_power = sum(p for p, _ in window) / len(window) if window else 0.0
+    avg_gpu = sum(g for _, g in window) / len(window) if window else 0.0
     peak_ram = max(rams) if rams else 0
     baseline_ram = rams[0] if rams else 0   # sebelum llama-bench mulai
     ram_delta = peak_ram - baseline_ram
-    avg_gpu = sum(gpus) / len(gpus) if gpus else 0.0
 
     return {
         "avg_power_mw": avg_power,
+        "avg_power_full_log_mw": full_power,
         "peak_ram_mb": peak_ram,
         "ram_delta_mb": ram_delta,
         "avg_gpu_util_pct": avg_gpu,
-        "n_samples": len(powers),
+        "n_samples": len(window),
+        "n_samples_full": len(samples),
     }
 
 
@@ -93,12 +109,16 @@ def main():
     ap.add_argument("--bench-json", required=True)
     ap.add_argument("--tegra-log", required=True)
     ap.add_argument("--csv", required=True)
+    ap.add_argument("--active-gpu-pct", type=float, default=0.0,
+                    help="trim the tegrastats log to the span where GR3D_FREQ >= this value before "
+                         "averaging power (0 = use the whole log, the old behaviour). Use ~20 for GGUF "
+                         "logs, which also contain idle time and model loading.")
     ap.add_argument("--runtime-json", default=None,
                     help="HF runs only: memory/swap diagnostics from benchmark_hf_jetson.py")
     args = ap.parse_args()
 
     bench = parse_bench(args.bench_json)
-    tegra = parse_tegra(args.tegra_log)
+    tegra = parse_tegra(args.tegra_log, args.active_gpu_pct)
 
     pp = find_test(bench, "pp") or {}
     tg = find_test(bench, "tg") or {}
@@ -134,6 +154,7 @@ def main():
         "peak_ram_mb": tegra["peak_ram_mb"],
         "ram_delta_mb": tegra["ram_delta_mb"],
         "avg_power_mw": round(tegra["avg_power_mw"], 0),
+        "avg_power_full_log_mw": round(tegra["avg_power_full_log_mw"], 0),
         "energy_per_token_mj": round(energy_per_token_mj, 2),
         "avg_gpu_util_pct": round(tegra["avg_gpu_util_pct"], 1),
         "speedup_vs_hf_fp16": round(speedup, 2),
@@ -165,7 +186,9 @@ def main():
     print(f"  Latency (256+64 tok)  : {latency_total_ms:.1f} ms")
     print(f"  Throughput overall    : {throughput_overall:.2f} tok/s")
     print(f"  Peak RAM              : {tegra['peak_ram_mb']} MB  (Δ {row['ram_delta_mb']} MB)")
-    print(f"  Avg power (VDD_IN)    : {tegra['avg_power_mw']:.0f} mW  ({tegra['n_samples']} samples)")
+    print(f"  Avg power (VDD_IN)    : {tegra['avg_power_mw']:.0f} mW  ({tegra['n_samples']} of {tegra['n_samples_full']} samples)")
+    if args.active_gpu_pct > 0:
+        print(f"  Avg power, full log   : {tegra['avg_power_full_log_mw']:.0f} mW  (for comparison)")
     print(f"  Avg GPU util          : {tegra['avg_gpu_util_pct']:.1f} %")
     print(f"  Energy / token        : {energy_per_token_mj:.2f} mJ")
     print(f"  Speedup vs HF-FP16    : {speedup:.2f}x  (HF baseline = {HF_FP16_BASELINE_TOK_S} tok/s)")
