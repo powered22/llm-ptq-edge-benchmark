@@ -5,6 +5,10 @@
 # Usage:
 #   ./scripts/jetson/benchmark_gguf_jetson.sh <gguf-file> <label>
 #
+# Optional env:
+#   ACTIVE_GPU_PCT=20   energy is averaged only over the span where GPU util >= this (drops idle + model
+#                       load from the tegrastats log). Set 0 for the old whole-log average.
+#
 # Output:
 #   ./results/jetson_gguf/<label>/bench.json   (llama-bench JSON output)
 #   ./results/jetson_gguf/<label>/tegra.log    (tegrastats raw log)
@@ -56,4 +60,5 @@ python3 "$REPO_ROOT/benchmark/aggregate_gguf_row.py" \
     --label "$LABEL" \
     --bench-json "$BENCH_JSON" \
     --tegra-log "$TEGRA_LOG" \
+    --active-gpu-pct "${ACTIVE_GPU_PCT:-20}" \
     --csv "$REPO_ROOT/results/jetson_gguf/summary.csv"
