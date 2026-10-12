@@ -45,11 +45,11 @@ LABEL_PARSE = {
 }
 
 
-def find_result_file(eval_dir: Path, label: str, part: str):
+def find_result_file(eval_dir: Path, label: str, part: str, file_prefix: str = "qwen2.5-0.5b-instruct"):
     """Cari file output lm-eval yang match prefix (dengan/tanpa timestamp).
     Kalau ada beberapa (multiple runs), pilih yang paling baru by mtime.
     """
-    prefix = f"qwen2.5-0.5b-instruct_{label}_{part}"
+    prefix = f"{file_prefix}_{label}_{part}"
     candidates = list(eval_dir.glob(f"{prefix}.json")) + \
                  list(eval_dir.glob(f"{prefix}_*.json"))
     # Filter: hanya .json, exclude .jsonl (samples files)
@@ -87,7 +87,11 @@ def main():
                     help="Directory berisi JSON output lm-eval (HF transformers)")
     ap.add_argument("--output", default="./results/eval/tabel1_hf/tabel1_qwen2.5-0.5b-instruct.csv",
                     help="Path CSV output")
+    ap.add_argument("--model-name", default="Qwen2.5-0.5B-Instruct",
+                    help="Model name for the CSV and table title; the lowercased name is the filename prefix "
+                         "of the lm-eval JSONs (e.g. Qwen2.5-1.5B-Instruct -> qwen2.5-1.5b-instruct_*)")
     args = ap.parse_args()
+    file_prefix = args.model_name.lower()
 
     eval_dir = Path(args.eval_dir)
     if not eval_dir.exists():
@@ -100,15 +104,15 @@ def main():
     for label in METHODS:
         method_name, bits = LABEL_PARSE[label]
         row = {
-            "model": "Qwen2.5-0.5B-Instruct",
+            "model": args.model_name,
             "method_label": label,
             "method": method_name,
             "bits": bits,
         }
 
-        lh_file = find_result_file(eval_dir, label, "likelihood")
-        gen_file = find_result_file(eval_dir, label, "gsm8k")
-        ifeval_file = find_result_file(eval_dir, label, "ifeval")
+        lh_file = find_result_file(eval_dir, label, "likelihood", file_prefix)
+        gen_file = find_result_file(eval_dir, label, "gsm8k", file_prefix)
+        ifeval_file = find_result_file(eval_dir, label, "ifeval", file_prefix)
 
         if lh_file is None and gen_file is None and ifeval_file is None:
             print(f"[skip] {label}: tidak ada file result ditemukan di {eval_dir}")
@@ -160,7 +164,7 @@ def main():
     # Print summary table ke terminal
     print()
     print("=" * 130)
-    print("  Tabel 1 — Akurasi metode kuantisasi (Qwen2.5-0.5B-Instruct, lm-eval-harness)")
+    print(f"  Tabel 1 — Akurasi metode kuantisasi ({args.model_name}, lm-eval-harness)")
     print("=" * 130)
     header = f"{'Method':<14}{'Bits':<8}"
     short_tasks = {"arc_easy": "arc_e", "arc_challenge": "arc_c",
