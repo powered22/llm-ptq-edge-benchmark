@@ -85,13 +85,15 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--eval-dir", default="./results/eval/tabel1_hf",
                     help="Directory berisi JSON output lm-eval (HF transformers)")
-    ap.add_argument("--output", default="./results/eval/tabel1_hf/tabel1_qwen2.5-0.5b-instruct.csv",
-                    help="Path CSV output")
+    ap.add_argument("--output", default=None,
+                    help="Path CSV output (default: <eval-dir>/tabel1_<model-name lowercased>.csv)")
     ap.add_argument("--model-name", default="Qwen2.5-0.5B-Instruct",
                     help="Model name for the CSV and table title; the lowercased name is the filename prefix "
                          "of the lm-eval JSONs (e.g. Qwen2.5-1.5B-Instruct -> qwen2.5-1.5b-instruct_*)")
     args = ap.parse_args()
     file_prefix = args.model_name.lower()
+    if args.output is None:
+        args.output = str(Path(args.eval_dir) / f"tabel1_{file_prefix}.csv")
 
     eval_dir = Path(args.eval_dir)
     if not eval_dir.exists():
