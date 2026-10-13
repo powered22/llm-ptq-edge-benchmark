@@ -62,8 +62,12 @@ def get_metric(results: dict, task: str):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--eval-dir", default="./results/eval/tabel4_gguf")
-    ap.add_argument("--output", default="./results/eval/tabel4_gguf/tabel4_qwen2.5-0.5b-instruct_gguf.csv")
+    ap.add_argument("--model-name", default="Qwen2.5-0.5B-Instruct")
+    ap.add_argument("--output", default=None,
+                    help="default: <eval-dir>/tabel4_<model-name lowercased>_gguf.csv")
     args = ap.parse_args()
+    if args.output is None:
+        args.output = str(Path(args.eval_dir) / f"tabel4_{args.model_name.lower()}_gguf.csv")
 
     eval_dir = Path(args.eval_dir)
     rows = []
@@ -71,7 +75,7 @@ def main():
 
     for scheme in SCHEMES:
         row = {
-            "model": "Qwen2.5-0.5B-Instruct",
+            "model": args.model_name,
             "engine": "llama.cpp",
             "scheme": scheme,
         }
@@ -125,7 +129,7 @@ def main():
     # Print summary
     print()
     print("=" * 130)
-    print("  Tabel 4 — Akurasi GGUF schemes (Qwen2.5-0.5B-Instruct, llama.cpp engine)")
+    print("  Tabel 4 — Akurasi GGUF schemes (llama.cpp engine)")
     print("=" * 130)
     short = {"arc_easy": "arc_e", "arc_challenge": "arc_c", "hellaswag": "hella",
              "winogrande": "wino", "mmlu": "mmlu", "truthfulqa_mc2": "tqa_mc2",
