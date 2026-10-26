@@ -11,6 +11,17 @@ BENCH="$REPO_ROOT/scripts/jetson/benchmark_gguf_jetson.sh"
 
 SCHEMES=(F16 Q8_0 Q5_K_M Q4_K_M Q4_0)
 
+# Jetson GPU memory (NvMap) needs big free chunks: before every attempt drop the page cache and
+# compact memory, otherwise llama-bench can fail with "NvMapMemAlloc ... error 12" while plenty of RAM is free.
+SUDO=""; [[ $EUID -eq 0 ]] || SUDO="sudo"
+prep_mem() {
+    sync
+    echo 3 | $SUDO tee /proc/sys/vm/drop_caches >/dev/null
+    echo 1 | $SUDO tee /proc/sys/vm/compact_memory >/dev/null 2>&1 || true
+    sleep 3
+    free -m | sed -n 1,2p
+}
+
 n_ok=0; n_skip=0; n_fail=0
 for scheme in "${SCHEMES[@]}"; do
     GGUF_FILE="$GGUF_DIR/qwen2.5_3b_instruct-${scheme}.gguf"
@@ -27,7 +38,14 @@ for scheme in "${SCHEMES[@]}"; do
     echo "  Benchmark [$((n_ok+n_fail+1))/${#SCHEMES[@]}]: $LABEL"
     echo "##################################################"
 
-    if "$BENCH" "$GGUF_FILE" "$LABEL"; then
+    ok=0
+    for attempt in 1 2 3; do
+        prep_mem
+        if "$BENCH" "$GGUF_FILE" "$LABEL"; then ok=1; break; fi
+        echo "[retry] $LABEL attempt $attempt failed"
+        pkill tegrastats 2>/dev/null || true
+    done
+    if [[ $ok -eq 1 ]]; then
         n_ok=$((n_ok+1))
     else
         echo "[error] gagal benchmark $LABEL"
