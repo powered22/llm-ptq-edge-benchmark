@@ -47,20 +47,22 @@ fi
 JOB="$REPO_ROOT/results/.gguf3b_job.sh"
 cat > "$JOB" <<JOBEOF
 #!/usr/bin/env bash
-restore() { sudo systemctl isolate graphical.target; }
+restore() { systemctl isolate graphical.target; chown -R shine:shine "$REPO_ROOT/results" "$REPO_ROOT/benchmark" 2>/dev/null; }
 trap restore EXIT
 source /home/shine/miniforge3/etc/profile.d/conda.sh
 conda activate ptq-benchmark
 cd "$REPO_ROOT"
 sleep 5
-sudo systemctl isolate multi-user.target
+systemctl isolate multi-user.target
 sleep 20
-sudo swapoff -a && sudo swapon -a
-sync; echo 3 | sudo tee /proc/sys/vm/drop_caches >/dev/null
+swapoff -a && swapon -a
+sync; echo 3 > /proc/sys/vm/drop_caches
 free -m
 bash scripts/jetson/benchmark_all_qwen3b_gguf.sh
 JOBEOF
 
 mkdir -p results
-nohup bash "$JOB" > "$LOG" 2>&1 &
+# The whole job runs as root (sudo -b), because a background job without a terminal cannot
+# ask for the sudo password later (that made isolate, drop_caches, jetson_clocks and tegrastats fail).
+sudo -n -b bash -c "bash $JOB > $LOG 2>&1"
 echo "Started in the background (log: $LOG). The screen will switch to a text console in a few seconds."
