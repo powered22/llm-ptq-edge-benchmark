@@ -7,7 +7,9 @@ panels (accuracy vs energy, accuracy vs throughput). In every panel "better" is 
   - dashed line   : the front of that panel's two objectives only (it can contain points that the
                     three-objective test rejects, and vice versa)
 
-Usage: python analysis/plot_table3_pareto.py table3_pareto.csv out_prefix
+Rows without throughput/energy (OOM on the 8 GB Jetson) are not drawn.
+
+Usage: python analysis/plot_table3_pareto.py table3_pareto.csv out_prefix [model_name]
 """
 import csv
 import sys
@@ -24,6 +26,8 @@ def load(path):
     rows = []
     with open(path) as f:
         for r in csv.DictReader(f):
+            if not r["throughput_overall_tok_s"] or not r["energy_mj_per_token"]:
+                continue
             name = f"{r['engine']} {r['method']}"
             if r["engine"] == "HF" and r["method"] == "RTN":
                 name += f" {r['bits']}"
@@ -88,11 +92,13 @@ def panel(ax, rows, kx, ky, xlabel, ylabel, x_higher_better, logx=False):
     adjust_text(texts, ax=ax, expand=(1.4, 1.8), arrowprops=dict(arrowstyle="-", color=MUTED, lw=0.6))
 
 
-def main(csv_path, out_prefix):
+def main(csv_path, out_prefix, model="Qwen2.5-0.5B-Instruct"):
     rows = load(csv_path)
+    energies = [r["energy"] for r in rows]
+    log_energy = max(energies) / min(energies) > 3
     fig, axes = plt.subplots(1, 2, figsize=(13, 5.8))
-    panel(axes[0], rows, "energy", "acc", "Energy per token (mJ, log scale, lower is better)",
-          "Average accuracy (%)", False, logx=True)
+    panel(axes[0], rows, "energy", "acc", "Energy per token (mJ, " + ("log scale, " if log_energy else "") + "lower is better)",
+          "Average accuracy (%)", False, logx=log_energy)
     panel(axes[1], rows, "thr", "acc", "Throughput, 256+64 tokens (tok/s, higher is better)",
           "Average accuracy (%)", True)
     axes[0].set_title("Accuracy vs energy", loc="left", fontsize=11, color=INK)
@@ -107,7 +113,7 @@ def main(csv_path, out_prefix):
         Line2D([], [], ls="--", color=MUTED, lw=1.6, label="front of this panel's 2 objectives"),
     ]
     fig.legend(handles=handles, loc="lower center", ncol=3, frameon=False, fontsize=9.5)
-    fig.suptitle("Qwen2.5-0.5B-Instruct on Jetson Orin Nano: Pareto analysis of PTQ configurations",
+    fig.suptitle(f"{model} on Jetson Orin Nano: Pareto analysis of PTQ configurations",
                  x=0.01, ha="left", fontsize=13, color=INK)
     fig.tight_layout(rect=(0, 0.1, 1, 0.95))
     for ext in ("png", "pdf"):
@@ -116,4 +122,4 @@ def main(csv_path, out_prefix):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    main(*sys.argv[1:4])
