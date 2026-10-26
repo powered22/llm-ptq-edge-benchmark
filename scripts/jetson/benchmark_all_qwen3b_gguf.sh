@@ -11,6 +11,24 @@ BENCH="$REPO_ROOT/scripts/jetson/benchmark_gguf_jetson.sh"
 
 SCHEMES=(F16 Q8_0 Q5_K_M Q4_K_M Q4_0)
 
+# Back up summary.csv and drop earlier 3B rows so a re-run does not leave duplicates.
+CSV="$REPO_ROOT/results/jetson_gguf/summary.csv"
+if [[ -f "$CSV" ]]; then
+    cp "$CSV" "$CSV.bak_$(date +%Y%m%d_%H%M%S)"
+    python3 - "$CSV" <<'PY'
+import csv, sys
+p = sys.argv[1]
+rows = list(csv.DictReader(open(p, newline="")))
+fields = list(csv.DictReader(open(p, newline="")).fieldnames or [])
+keep = [r for r in rows if not (r.get("label") or "").startswith("qwen2.5-3b-instruct_")]
+with open(p, "w", newline="") as f:
+    w = csv.DictWriter(f, fieldnames=fields, restval="")
+    w.writeheader()
+    w.writerows(keep)
+print(f"[csv] kept {len(keep)} of {len(rows)} rows (3B rows removed before the re-run)")
+PY
+fi
+
 # Jetson GPU memory (NvMap) needs big free chunks: before every attempt drop the page cache and
 # compact memory, otherwise llama-bench can fail with "NvMapMemAlloc ... error 12" while plenty of RAM is free.
 SUDO=""; [[ $EUID -eq 0 ]] || SUDO="sudo"
