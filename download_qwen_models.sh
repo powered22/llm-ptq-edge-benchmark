@@ -48,7 +48,7 @@ REPOS=(
     "poweredshine/qwen2.5_1.5b_instruct_smooth_w8a8"
 
     # ----- Qwen2.5-0.5B-Instruct -----
-    "poweredshine/qwen2.5_0.5b_instruct_smooth_w8a8"
+    "poweredshine/qwen2.5_0.5b_instruct_smooth_w8a8_v2"
     "poweredshine/qwen2.5_0.5b_instruct_rtn_w8a16"
     "poweredshine/qwen2.5_0.5b_instruct_rtn_w4a16"
     "poweredshine/qwen2.5_0.5b_instruct_gptq_w4a16"

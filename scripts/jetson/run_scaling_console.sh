@@ -62,7 +62,7 @@ HF_05=(
     "qwen2.5-0.5b-instruct_hf_rtnW4A16:gptq:$R/qwen2.5_0.5b_instruct_rtn_w4a16"
     "qwen2.5-0.5b-instruct_hf_rtnW8A16:gptq:$R/qwen2.5_0.5b_instruct_rtn_w8a16"
     "qwen2.5-0.5b-instruct_hf_awqW4A16:gptq:$R/qwen2.5_0.5b_instruct_awq_w4a16"
-    "qwen2.5-0.5b-instruct_hf_smoothW8A8:gptq:$R/qwen2.5_0.5b_instruct_smooth_w8a8"
+    "qwen2.5-0.5b-instruct_hf_smoothW8A8:gptq:$R/qwen2.5_0.5b_instruct_smooth_w8a8_v2"
 )
 SCHEMES=(F16 Q8_0 Q5_K_M Q4_K_M Q4_0)
 
