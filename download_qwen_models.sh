@@ -53,6 +53,18 @@ REPOS=(
     "poweredshine/qwen2.5_0.5b_instruct_rtn_w4a16"
     "poweredshine/qwen2.5_0.5b_instruct_gptq_w4a16"
     "poweredshine/qwen2.5_0.5b_instruct_awq_w4a16"
+
+    # ----- SmolLM2-Instruct (comparison models) -----
+    "poweredshine/smollm2_360m_instruct_awq_w4a16"
+    "poweredshine/smollm2_360m_instruct_gptq_w4a16"
+    "poweredshine/smollm2_360m_instruct_rtn_w4a16"
+    "poweredshine/smollm2_360m_instruct_rtn_w8a16"
+    "poweredshine/smollm2_360m_instruct_smooth_w8a8"
+    "poweredshine/smollm2_1.7b_instruct_awq_w4a16"
+    "poweredshine/smollm2_1.7b_instruct_gptq_w4a16"
+    "poweredshine/smollm2_1.7b_instruct_rtn_w4a16"
+    "poweredshine/smollm2_1.7b_instruct_rtn_w8a16"
+    "poweredshine/smollm2_1.7b_instruct_smooth_w8a8"
 )
 
 echo "=================================================="

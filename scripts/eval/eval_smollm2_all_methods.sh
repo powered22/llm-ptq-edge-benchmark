@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# Tabel 1 (comparison model): accuracy of all HF methods for SmolLM2-<size>-Instruct.
+# Usage: bash scripts/eval/eval_smollm2_all_methods.sh <360m|1.7b>      (same task split and settings as the Qwen script)
+# Engine: HF transformers + lm-evaluation-harness, di Linux GPU.
+#
+# Split tasks (berdasarkan smoketest comparison 2026-05-27):
+#   - Likelihood-based (log-prob multiple choice): TANPA chat template
+#       arc_easy, arc_challenge, hellaswag, winogrande, mmlu, truthfulqa_mc
+#     → Smoketest menunjukkan tanpa template +10pp lebih akurat untuk Qwen-Instruct.
+#   - Generative (free-form text): DENGAN chat template
+#       gsm8k
+#     → Convention: instruct model butuh chat format untuk produce structured answer.
+#
+# Output per metode: 2 file JSON
+#   ./results/eval/qwen2.5-1.5b-instruct_<label>_likelihood.json
+#   ./results/eval/qwen2.5-1.5b-instruct_<label>_gsm8k.json
+#
+# Total: 6 metode × 2 part = 12 lm-eval invocations. Estimasi 3-6 jam.
+#
+# Prasyarat:
+#   1. pip install 'lm-eval>=0.4.2' compressed-tensors accelerate
+#   3. CUDA aktif (cek: python -c "import torch; print(torch.cuda.is_available())")
+set -euo pipefail
+
+SZ="${1:?usage: $0 <360m|1.7b>}"
+SZU="$(echo "$SZ" | tr a-z A-Z)"
+TAG="smollm2-${SZ}-instruct"
+DIR="smollm2_${SZ}_instruct"
+
+cd "$(dirname "$0")/../.."
+export PYTHONPATH="$(pwd):${PYTHONPATH:-}"
+
+# Task split — JANGAN diubah tanpa re-validasi via smoketest.
+LIKELIHOOD_TASKS="arc_easy,arc_challenge,hellaswag,winogrande,mmlu,truthfulqa_mc2"
+GEN_TASKS="gsm8k"
+# Tambahan dari Open LLM Leaderboard v2 — instruction-following, cocok untuk Instruct models.
+IFEVAL_TASKS="ifeval"
+
+BATCH_SIZE="${BATCH_SIZE:-8}"
+OUT_DIR="${OUT_DIR:-./results/eval/tabel1_hf_smollm2_${SZ}}"
+mkdir -p "$OUT_DIR"
+
+# Format: "label:method:model_path". Quantized checkpoints are the local outputs of
+# quantization/dryrun_smollm2.sh.
+METHODS=(
+    "fp16:fp16:HuggingFaceTB/SmolLM2-${SZU}-Instruct"
+    "awqW4A16:awq:./results/${DIR}_awq_w4a16"
+    "gptqW4A16:gptq:./results/${DIR}_gptq_w4a16"
+    "rtnW4A16:rtn:./results/${DIR}_rtn_w4a16"
+    "rtnW8A16:rtn:./results/${DIR}_rtn_w8a16"
+    "smoothW8A8:smoothquant:./results/${DIR}_smooth_w8a8"
+)
+
+is_valid_json() {
+    # Return 0 jika file valid JSON parseable, non-zero kalau corrupt/empty.
+    python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$1" 2>/dev/null
+}
+
+run_part() {
+    # run_part <model_path> <method> <tasks> <output> <use_template:0|1>
+    local model_path="$1" method="$2" tasks="$3" out="$4" use_template="$5"
+
+    # lm-eval-harness append _<TIMESTAMP> ke filename --output_path.
+    # Cari semua match: literal path + timestamped variants.
+    local prefix="${out%.json}"
+    shopt -s nullglob
+    local matches=( "$out" "${prefix}_"*.json )
+    shopt -u nullglob
+
+    if [[ -z "${FORCE:-}" ]]; then
+        for f in "${matches[@]}"; do
+            [[ -f "$f" ]] || continue
+            if is_valid_json "$f"; then
+                echo "    [skip] $f sudah ada & valid"
+                return 0
+            fi
+        done
+    fi
+
+    # Hapus corrupt/partial yang ada (kalau ada)
+    for f in "${matches[@]}"; do
+        if [[ -f "$f" ]] && ! is_valid_json "$f"; then
+            rm "$f" && echo "    [clean] hapus corrupt: $f"
+        fi
+    done
+
+    local args=(--model-path "$model_path" --method "$method" --tasks "$tasks"
+                --batch-size "$BATCH_SIZE" --output "$out")
+    [[ "$use_template" == "1" ]] && args+=(--apply-chat-template)
+
+    python3 evaluation/run_lm_harness.py "${args[@]}"
+}
+
+n_ok=0; n_fail=0; idx=0
+for spec in "${METHODS[@]}"; do
+    idx=$((idx+1))
+    label="${spec%%:*}"
+    rest="${spec#*:}"
+    method="${rest%%:*}"
+    model_path="${rest#*:}"
+
+    OUT_LH="$OUT_DIR/${TAG}_${label}_likelihood.json"
+    OUT_GEN="$OUT_DIR/${TAG}_${label}_gsm8k.json"
+    OUT_IFEVAL="$OUT_DIR/${TAG}_${label}_ifeval.json"
+
+    echo ""
+    echo "##################################################"
+    echo "  [$idx/${#METHODS[@]}] $label   ($method)"
+    echo "      Model: $model_path"
+    echo "##################################################"
+
+    echo ""
+    echo "  Part A: 6 likelihood tasks (NO chat template)"
+    if run_part "$model_path" "$method" "$LIKELIHOOD_TASKS" "$OUT_LH" 0; then
+        n_ok=$((n_ok+1))
+        echo "  Part A: OK"
+    else
+        n_fail=$((n_fail+1))
+        echo "  Part A: FAILED"
+    fi
+
+    echo ""
+    echo "  Part B: gsm8k (WITH chat template)"
+    if run_part "$model_path" "$method" "$GEN_TASKS" "$OUT_GEN" 1; then
+        n_ok=$((n_ok+1))
+        echo "  Part B: OK"
+    else
+        n_fail=$((n_fail+1))
+        echo "  Part B: FAILED"
+    fi
+
+    echo ""
+    echo "  Part C: ifeval (WITH chat template)"
+    if run_part "$model_path" "$method" "$IFEVAL_TASKS" "$OUT_IFEVAL" 1; then
+        n_ok=$((n_ok+1))
+        echo "  Part C: OK"
+    else
+        n_fail=$((n_fail+1))
+        echo "  Part C: FAILED"
+    fi
+done
+
+echo ""
+echo "=================================================="
+echo "  Tabel 1 selesai."
+echo "  Total parts OK   : $n_ok / $((${#METHODS[@]} * 3))"
+echo "  Total parts FAIL : $n_fail"
+echo "=================================================="
+echo ""
+echo "Output di $OUT_DIR/:"
+ls -lh "$OUT_DIR/"${TAG}_*.json 2>/dev/null || true
+echo ""
+echo "Langkah selanjutnya: aggregate 12 JSON ini ke satu CSV Tabel 1."
