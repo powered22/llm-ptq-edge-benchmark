@@ -48,7 +48,7 @@ for SZ in "${SIZES[@]}"; do
     step "$TAG awq_w4a16"   python quantization/quantize_awq_v2.py   --model "$MODEL" --output "${OUT}_awq_w4a16"  --num-calibration-samples $NUM_SAMPLES --max-seq-length $MAX_SEQ "${GS[@]}"
     step "$TAG gptq_w4a16"  python quantization/quantize_gptq_v2.py  --model "$MODEL" --output "${OUT}_gptq_w4a16" --num-samples $NUM_SAMPLES --scheme W4A16 "${GS[@]}"
     step "$TAG rtn_w4a16"   python quantization/quantize_rtn.py      --model "$MODEL" --output "${OUT}_rtn_w4a16"  --scheme W4A16 "${GS[@]}"
-    step "$TAG rtn_w8a16"   python quantization/quantize_rtn.py      --model "$MODEL" --output "${OUT}_rtn_w8a16"  --scheme W8A16
+    step "$TAG rtn_w8a16"   python quantization/quantize_rtn.py      --model "$MODEL" --output "${OUT}_rtn_w8a16"  --scheme W8A16 "${GS[@]}"
     step "$TAG smooth_w8a8" python quantization/quantize_smoothquant.py --model "$MODEL" --output "${OUT}_smooth_w8a8"
 
     for m in awq_w4a16 gptq_w4a16 rtn_w4a16 rtn_w8a16 smooth_w8a8; do
