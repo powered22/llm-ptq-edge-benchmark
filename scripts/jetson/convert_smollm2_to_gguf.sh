@@ -7,6 +7,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
+# libcudss for the Jetson CUDA torch build (the converter imports torch)
+export LD_LIBRARY_PATH="/home/shine/miniforge3/envs/ptq-benchmark/lib/python3.10/site-packages/nvidia/cu12/lib:${LD_LIBRARY_PATH:-}"
+
 if ! python3 -c "import gguf" 2>/dev/null; then
     echo "[setup] installing converter dependencies..."
     pip install -r external/llama.cpp/requirements/requirements-convert_hf_to_gguf.txt
