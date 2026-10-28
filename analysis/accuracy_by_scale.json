@@ -1,0 +1,11 @@
+{
+  "_note": "8-task average accuracy in %, x86 GPU. HF from Table 1 (evaluation/aggregate_tabel1.py), GGUF from Table 4 (evaluation/aggregate_tabel4.py).",
+  "Qwen2.5-1.5B-Instruct": {
+    "hf":   {"fp16": 55.82, "awqW4A16": 53.55, "gptqW4A16": 53.93, "rtnW4A16": 51.87, "rtnW8A16": 55.72, "smoothW8A8": 55.69},
+    "gguf": {"F16": 56.13, "Q8_0": 56.24, "Q5_K_M": 56.90, "Q4_K_M": 55.72, "Q4_0": 55.52}
+  },
+  "Qwen2.5-3B-Instruct": {
+    "hf":   {"fp16": 61.62, "awqW4A16": 59.81, "gptqW4A16": 60.04, "rtnW4A16": 57.09, "rtnW8A16": 61.91, "smoothW8A8": 62.24},
+    "gguf": {"F16": 62.14, "Q8_0": 61.77, "Q5_K_M": 61.86, "Q4_K_M": 61.06, "Q4_0": 59.91}
+  }
+}
