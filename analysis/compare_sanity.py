@@ -7,9 +7,10 @@ import argparse, glob, json, os
 from collections import defaultdict
 
 TASKS = ["arc_easy", "hellaswag", "winogrande"]
-# jetson label -> substrings that must appear in the x86 samples path
-MATCH = {"hf_fp16": ["tabel1", "fp16"], "hf_gptqW4A16": ["tabel1", "gptq"],
-         "gguf_Q8_0": ["tabel4", "Q8_0"], "gguf_Q4_0": ["tabel4", "Q4_0"]}
+# jetson label -> (x86 dir, tag in the x86 likelihood result filename). The result file name carries the same
+# timestamp as the samples_<task>_<timestamp>.jsonl files written by the same run.
+MATCH = {"hf_fp16": ("tabel1_hf", "_fp16_likelihood_"), "hf_gptqW4A16": ("tabel1_hf", "_gptqW4A16_likelihood_"),
+         "gguf_Q8_0": ("tabel4_gguf", "_Q8_0_likelihood_"), "gguf_Q4_0": ("tabel4_gguf", "_Q4_0_likelihood_")}
 
 def load_peritem(path, lab, t):
     return {d: a for l, tt, d, a in json.load(open(path)) if l == lab and tt == t}
@@ -21,10 +22,13 @@ def load(path):
         d[r["doc_id"]] = r.get("acc", r.get("acc_norm"))
     return d
 
-def find_x86(root, task, subs):
-    c = [p for p in glob.glob(os.path.join(root, "**", f"samples_{task}_*.jsonl"), recursive=True)
-         if all(s.lower() in p.lower() for s in subs) and "smollm" not in p.lower() and "1.5b" not in p.lower() and "3b" not in p.lower()]
-    return sorted(c)[-1] if c else None
+def find_x86(root, task, spec):
+    d, tag = spec
+    res = sorted(glob.glob(os.path.join(root, d, f"*{tag}*.json")))
+    if not res: return None
+    ts = os.path.basename(res[-1]).split(tag)[1][:-len(".json")]
+    f = os.path.join(root, d, f"samples_{task}_{ts}.jsonl")
+    return f if os.path.exists(f) else None
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("--jetson", required=True, help="dir with samples files, or per_item.json"); ap.add_argument("--x86", required=True)
