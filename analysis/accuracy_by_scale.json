@@ -1,11 +1,71 @@
 {
-  "_note": "8-task average accuracy in %, x86 GPU. HF from Table 1 (evaluation/aggregate_tabel1.py), GGUF from Table 4 (evaluation/aggregate_tabel4.py).",
+  "_note": "8-task average accuracy in %, x86 GPU. HF from Table 1 (evaluation/aggregate_tabel1.py), GGUF from Table 4 (evaluation/aggregate_tabel4.py). Qwen 0.5B values are 2-decimal values from the earlier Table 3; Qwen 1.5B from notes; SmolLM2 computed from the per-task means in the CSVs. 3B removed (not in the paper).",
   "Qwen2.5-1.5B-Instruct": {
-    "hf":   {"fp16": 55.82, "awqW4A16": 53.55, "gptqW4A16": 53.93, "rtnW4A16": 51.87, "rtnW8A16": 55.72, "smoothW8A8": 55.69},
-    "gguf": {"F16": 56.13, "Q8_0": 56.24, "Q5_K_M": 56.90, "Q4_K_M": 55.72, "Q4_0": 55.52}
+    "hf": {
+      "fp16": 55.82,
+      "awqW4A16": 53.55,
+      "gptqW4A16": 53.93,
+      "rtnW4A16": 51.87,
+      "rtnW8A16": 55.72,
+      "smoothW8A8": 55.69
+    },
+    "gguf": {
+      "F16": 56.13,
+      "Q8_0": 56.24,
+      "Q5_K_M": 56.9,
+      "Q4_K_M": 55.72,
+      "Q4_0": 55.52
+    }
   },
-  "Qwen2.5-3B-Instruct": {
-    "hf":   {"fp16": 61.62, "awqW4A16": 59.81, "gptqW4A16": 60.04, "rtnW4A16": 57.09, "rtnW8A16": 61.91, "smoothW8A8": 62.24},
-    "gguf": {"F16": 62.14, "Q8_0": 61.77, "Q5_K_M": 61.86, "Q4_K_M": 61.06, "Q4_0": 59.91}
+  "Qwen2.5-0.5B-Instruct": {
+    "hf": {
+      "fp16": 42.18,
+      "awqW4A16": 38.59,
+      "gptqW4A16": 40.6,
+      "rtnW4A16": 38.83,
+      "rtnW8A16": 42.34,
+      "smoothW8A8": 42.42
+    },
+    "gguf": {
+      "F16": 42.8,
+      "Q8_0": 42.39,
+      "Q5_K_M": 42.7,
+      "Q4_K_M": 42.12,
+      "Q4_0": 41.25
+    }
+  },
+  "SmolLM2-1.7B-Instruct": {
+    "hf": {
+      "fp16": 52.41,
+      "awqW4A16": 48.3,
+      "gptqW4A16": 50.12,
+      "rtnW4A16": 48.5,
+      "rtnW8A16": 52.25,
+      "smoothW8A8": 49.23
+    },
+    "gguf": {
+      "F16": 52.53,
+      "Q8_0": 52.7,
+      "Q5_K_M": 51.99,
+      "Q4_K_M": 51.53,
+      "Q4_0": 51.16
+    }
+  },
+  "SmolLM2-360M-Instruct": {
+    "hf": {
+      "fp16": 37.6,
+      "awqW4A16": 35.09,
+      "gptqW4A16": 35.33,
+      "rtnW4A16": 35.18,
+      "rtnW8A16": 37.37,
+      "smoothW8A8": 37.11
+    },
+    "gguf": {
+      "F16": 37.35,
+      "Q8_0": 37.43,
+      "Q5_K_M": 36.74,
+      "Q4_K_M": 37.05,
+      "Q4_0": 35.48
+    }
   }
 }
