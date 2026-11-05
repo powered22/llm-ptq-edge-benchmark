@@ -14,10 +14,12 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from llmcompressor import oneshot
 from llmcompressor.modifiers.quantization import QuantizationModifier
 
+from _scheme import scheme_kwargs
+
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-def quantize_rtn(model_name: str, output_dir: str, scheme: str = "W4A16"):
+def quantize_rtn(model_name: str, output_dir: str, scheme: str = "W4A16", group_size: int | None = None):
     print(f"Loading {model_name}...")
     model = AutoModelForCausalLM.from_pretrained(
         model_name, torch_dtype="auto", device_map="auto", trust_remote_code=True
@@ -26,7 +28,7 @@ def quantize_rtn(model_name: str, output_dir: str, scheme: str = "W4A16"):
 
     recipe = QuantizationModifier(
         targets="Linear",
-        scheme=scheme,
+        **scheme_kwargs(scheme, group_size),
         ignore=["lm_head"],
     )
 
@@ -45,5 +47,6 @@ if __name__ == "__main__":
     parser.add_argument("--model", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--scheme", default="W4A16", choices=["W4A16", "W8A16"])
+    parser.add_argument("--group-size", type=int, default=None, help="override the preset group size (128)")
     args = parser.parse_args()
-    quantize_rtn(args.model, args.output, args.scheme)
+    quantize_rtn(args.model, args.output, args.scheme, args.group_size)

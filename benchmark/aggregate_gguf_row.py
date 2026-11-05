@@ -171,11 +171,21 @@ def main():
 
     csv_path = Path(args.csv)
     csv_path.parent.mkdir(parents=True, exist_ok=True)
-    write_header = not csv_path.exists()
-    with open(csv_path, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(row.keys()))
-        if write_header:
-            writer.writeheader()
+    # If the file already exists with a different column set (for example rows written before
+    # new columns were added), rewrite it with the merged columns so every row lines up.
+    fieldnames = list(row.keys())
+    old_rows = []
+    if csv_path.exists():
+        with open(csv_path, newline="") as f:
+            reader = csv.DictReader(f)
+            old_rows = list(reader)
+            old_fields = list(reader.fieldnames or [])
+        fieldnames = old_fields + [k for k in row.keys() if k not in old_fields]
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, restval="")
+        writer.writeheader()
+        for r in old_rows:
+            writer.writerow({k: v for k, v in r.items() if k in fieldnames})
         writer.writerow(row)
 
     print()

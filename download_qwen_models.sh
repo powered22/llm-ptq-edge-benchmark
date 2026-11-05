@@ -21,8 +21,8 @@ if [[ -z "${HF_TOKEN:-}" ]]; then
     exit 1
 fi
 
-if ! command -v huggingface-cli >/dev/null 2>&1; then
-    echo "huggingface-cli tidak ditemukan — install dulu:"
+if ! command -v hf >/dev/null 2>&1; then
+    echo "hf (huggingface_hub CLI) tidak ditemukan — install dulu:"
     echo "  pip install -U 'huggingface_hub[cli]'"
     exit 1
 fi
@@ -48,11 +48,23 @@ REPOS=(
     "poweredshine/qwen2.5_1.5b_instruct_smooth_w8a8"
 
     # ----- Qwen2.5-0.5B-Instruct -----
-    "poweredshine/qwen2.5_0.5b_instruct_smooth_w8a8"
+    "poweredshine/qwen2.5_0.5b_instruct_smooth_w8a8_v2"
     "poweredshine/qwen2.5_0.5b_instruct_rtn_w8a16"
     "poweredshine/qwen2.5_0.5b_instruct_rtn_w4a16"
     "poweredshine/qwen2.5_0.5b_instruct_gptq_w4a16"
     "poweredshine/qwen2.5_0.5b_instruct_awq_w4a16"
+
+    # ----- SmolLM2-Instruct (comparison models) -----
+    "poweredshine/smollm2_360m_instruct_awq_w4a16"
+    "poweredshine/smollm2_360m_instruct_gptq_w4a16"
+    "poweredshine/smollm2_360m_instruct_rtn_w4a16"
+    "poweredshine/smollm2_360m_instruct_rtn_w8a16"
+    "poweredshine/smollm2_360m_instruct_smooth_w8a8"
+    "poweredshine/smollm2_1.7b_instruct_awq_w4a16"
+    "poweredshine/smollm2_1.7b_instruct_gptq_w4a16"
+    "poweredshine/smollm2_1.7b_instruct_rtn_w4a16"
+    "poweredshine/smollm2_1.7b_instruct_rtn_w8a16"
+    "poweredshine/smollm2_1.7b_instruct_smooth_w8a8"
 )
 
 echo "=================================================="
@@ -74,9 +86,8 @@ for repo in "${REPOS[@]}"; do
     echo "[$((n_ok+n_fail+1))/${#REPOS[@]}] $repo"
     echo "   -> $target"
 
-    if huggingface-cli download "$repo" \
+    if hf download "$repo" \
             --local-dir "$target" \
-            --local-dir-use-symlinks False \
             --token "$HF_TOKEN" \
             >/dev/null; then
         echo "   OK"

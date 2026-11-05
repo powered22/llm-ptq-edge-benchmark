@@ -14,10 +14,12 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from llmcompressor import oneshot
 from llmcompressor.modifiers.quantization import GPTQModifier
 
+from _scheme import scheme_kwargs
+
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-def quantize_gptq(model_name: str, output_dir: str, num_samples: int = 512, scheme: str = "W4A16"):
+def quantize_gptq(model_name: str, output_dir: str, num_samples: int = 512, scheme: str = "W4A16", group_size: int | None = None):
     print(f"Loading {model_name}...")
     model = AutoModelForCausalLM.from_pretrained(
         model_name, torch_dtype="auto", device_map="auto", trust_remote_code=True
@@ -26,7 +28,7 @@ def quantize_gptq(model_name: str, output_dir: str, num_samples: int = 512, sche
 
     recipe = GPTQModifier(
         targets="Linear",
-        scheme=scheme,
+        **scheme_kwargs(scheme, group_size),
         ignore=["lm_head"],
     )
 
@@ -52,5 +54,6 @@ if __name__ == "__main__":
     parser.add_argument("--output", required=True)
     parser.add_argument("--num-samples", type=int, default=512)
     parser.add_argument("--scheme", default="W4A16", choices=["W4A16", "W8A16"])
+    parser.add_argument("--group-size", type=int, default=None, help="override the preset group size (128)")
     args = parser.parse_args()
-    quantize_gptq(args.model, args.output, args.num_samples, args.scheme)
+    quantize_gptq(args.model, args.output, args.num_samples, args.scheme, args.group_size)

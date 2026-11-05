@@ -20,6 +20,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from llmcompressor import oneshot
 from llmcompressor.modifiers.awq import AWQModifier
 
+from _scheme import scheme_kwargs
+
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
@@ -45,6 +47,7 @@ def quantize_awq(
     output_dir: str,
     num_calibration_samples: int = 512,
     max_seq_length: int = 512,
+    group_size: int | None = None,
 ):
     print(f"Loading {model_name}...")
     model = AutoModelForCausalLM.from_pretrained(
@@ -57,7 +60,7 @@ def quantize_awq(
 
     recipe = AWQModifier(
         targets=["Linear"],
-        scheme="W4A16",
+        **scheme_kwargs("W4A16", group_size),
         ignore=["lm_head"],
     )
 
@@ -83,10 +86,12 @@ if __name__ == "__main__":
     parser.add_argument("--output", required=True)
     parser.add_argument("--num-calibration-samples", type=int, default=512)
     parser.add_argument("--max-seq-length", type=int, default=512)
+    parser.add_argument("--group-size", type=int, default=None, help="override the preset group size (128)")
     args = parser.parse_args()
     quantize_awq(
         args.model,
         args.output,
         args.num_calibration_samples,
         args.max_seq_length,
+        args.group_size,
     )
