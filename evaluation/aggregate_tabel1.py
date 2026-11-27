@@ -32,7 +32,8 @@ TASK_METRICS = {
 TASK_ORDER = list(TASK_METRICS.keys())
 
 # Methods (label di filename) — urutan untuk row CSV
-METHODS = ["fp16", "awqW4A16", "gptqW4A16", "rtnW4A16", "rtnW8A16", "smoothW8A8"]
+METHODS = ["fp16", "awqW4A16", "gptqW4A16", "rtnW4A16", "rtnW8A16", "smoothW8A8",
+           "rtnW4A16g128local", "rtnW4A16g32"]  # last two: group-size diagnostic (skipped if absent)
 
 # Map label → (Method, Bits) yang readable untuk tabel paper
 LABEL_PARSE = {
@@ -42,6 +43,8 @@ LABEL_PARSE = {
     "rtnW4A16":   ("RTN",          "W4A16"),
     "rtnW8A16":   ("RTN",          "W8A16"),
     "smoothW8A8": ("SmoothQuant",  "W8A8"),
+    "rtnW4A16g128local": ("RTN g128 (re-quantized)", "W4A16"),
+    "rtnW4A16g32":       ("RTN g32",                 "W4A16"),
 }
 
 
